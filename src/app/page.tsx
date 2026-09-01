@@ -403,7 +403,12 @@ export default function Home() {
           }}
           onUpdateRoom={handleUpdateRoom}
           onUpdateItem={handleUpdateItem}
+          onDeleteItem={handleDeleteItem}
+          onDuplicateItem={handleDuplicateItem}
+          onToggleGridSnap={() => setState((prev) => ({ ...prev, snapToGrid: !prev.snapToGrid }))}
+          onToggleAngleSnap={() => setState((prev) => ({ ...prev, snapAngle: !prev.snapAngle }))}
           zoom={zoom}
+          setZoom={setZoom}
           canvasRef={canvasRef}
         />
 
