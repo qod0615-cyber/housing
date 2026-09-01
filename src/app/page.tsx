@@ -136,6 +136,23 @@ export default function Home() {
     })();
   }, []);
 
+  // Delete Item / Room
+  const handleDeleteItem = (id: string) => {
+    updateStateWithHistory((prev) => ({
+      ...prev,
+      items: prev.items.filter((i) => i.id !== id),
+    }));
+    setSelectedItemId(null);
+  };
+
+  const handleDeleteRoom = (id: string) => {
+    updateStateWithHistory((prev) => ({
+      ...prev,
+      rooms: prev.rooms.filter((r) => r.id !== id),
+    }));
+    setSelectedRoomId(null);
+  };
+
   // Keyboard shortcuts (Undo, Redo, Delete, Nudge arrows)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -225,23 +242,6 @@ export default function Home() {
       ...prev,
       rooms: prev.rooms.map((r) => (r.id === updatedRoom.id ? updatedRoom : r)),
     }));
-  };
-
-  // Delete Item / Room
-  const handleDeleteItem = (id: string) => {
-    updateStateWithHistory((prev) => ({
-      ...prev,
-      items: prev.items.filter((i) => i.id !== id),
-    }));
-    setSelectedItemId(null);
-  };
-
-  const handleDeleteRoom = (id: string) => {
-    updateStateWithHistory((prev) => ({
-      ...prev,
-      rooms: prev.rooms.filter((r) => r.id !== id),
-    }));
-    setSelectedRoomId(null);
   };
 
   // Duplicate Item
