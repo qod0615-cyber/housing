@@ -109,9 +109,10 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
               type="number"
               min={10}
               step={state.unit === 'm' ? 0.01 : 1}
-              value={state.unit === 'm' ? (selectedRoom.w / 100).toFixed(2) : selectedRoom.w}
+              value={state.unit === 'm' ? Math.round(selectedRoom.w) / 100 : selectedRoom.w}
               onChange={(e) => {
-                const val = parseFloat(e.target.value) || 10;
+                const val = parseFloat(e.target.value);
+                if (isNaN(val)) return;
                 const cm = state.unit === 'm' ? val * 100 : val;
                 onUpdateRoom({ ...selectedRoom, w: Math.max(10, cm) });
               }}
@@ -126,9 +127,10 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
               type="number"
               min={10}
               step={state.unit === 'm' ? 0.01 : 1}
-              value={state.unit === 'm' ? (selectedRoom.h / 100).toFixed(2) : selectedRoom.h}
+              value={state.unit === 'm' ? Math.round(selectedRoom.h) / 100 : selectedRoom.h}
               onChange={(e) => {
-                const val = parseFloat(e.target.value) || 10;
+                const val = parseFloat(e.target.value);
+                if (isNaN(val)) return;
                 const cm = state.unit === 'm' ? val * 100 : val;
                 onUpdateRoom({ ...selectedRoom, h: Math.max(10, cm) });
               }}
@@ -149,12 +151,14 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
               min={5}
               max={60}
               value={selectedRoom.wallThickness ?? state.globalWallThickness}
-              onChange={(e) =>
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (isNaN(val)) return;
                 onUpdateRoom({
                   ...selectedRoom,
-                  wallThickness: Math.max(5, parseFloat(e.target.value) || 15),
-                })
-              }
+                  wallThickness: Math.max(5, val),
+                });
+              }}
               className="bg-slate-900 border border-slate-700 text-amber-300 font-mono text-center font-bold text-sm rounded-lg p-2 w-full focus:border-amber-500 outline-none"
             />
             <span className="text-xs text-slate-400 font-semibold">cm</span>
@@ -171,7 +175,11 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
             <input
               type="number"
               value={Math.round(selectedRoom.x)}
-              onChange={(e) => onUpdateRoom({ ...selectedRoom, x: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (isNaN(val)) return;
+                onUpdateRoom({ ...selectedRoom, x: val });
+              }}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white font-mono text-center focus:border-blue-500 outline-none"
             />
           </div>
@@ -180,7 +188,11 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
             <input
               type="number"
               value={Math.round(selectedRoom.y)}
-              onChange={(e) => onUpdateRoom({ ...selectedRoom, y: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (isNaN(val)) return;
+                onUpdateRoom({ ...selectedRoom, y: val });
+              }}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white font-mono text-center focus:border-blue-500 outline-none"
             />
           </div>
@@ -259,9 +271,10 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
             type="number"
             min={5}
             step={state.unit === 'm' ? 0.01 : 1}
-            value={state.unit === 'm' ? (selectedItem.w / 100).toFixed(2) : selectedItem.w}
+            value={state.unit === 'm' ? Math.round(selectedItem.w) / 100 : selectedItem.w}
             onChange={(e) => {
-              const val = parseFloat(e.target.value) || 5;
+              const val = parseFloat(e.target.value);
+              if (isNaN(val)) return;
               const cm = state.unit === 'm' ? val * 100 : val;
               const newW = Math.max(5, cm);
               onUpdateItem({ 
@@ -282,9 +295,10 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
               type="number"
               min={5}
               step={state.unit === 'm' ? 0.01 : 1}
-              value={state.unit === 'm' ? (selectedItem.h / 100).toFixed(2) : selectedItem.h}
+              value={state.unit === 'm' ? Math.round(selectedItem.h) / 100 : selectedItem.h}
               onChange={(e) => {
-                const val = parseFloat(e.target.value) || 5;
+                const val = parseFloat(e.target.value);
+                if (isNaN(val)) return;
                 const cm = state.unit === 'm' ? val * 100 : val;
                 onUpdateItem({ ...selectedItem, h: Math.max(5, cm) });
               }}
