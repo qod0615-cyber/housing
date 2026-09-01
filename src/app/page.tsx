@@ -72,7 +72,7 @@ export default function Home() {
       const res = await fetch('/api/blueprint', { cache: 'no-store' });
       if (res.ok) {
         const cloudData = await res.json();
-        if (cloudData.rooms && cloudData.items) {
+        if (cloudData.rooms && Array.isArray(cloudData.rooms) && cloudData.rooms.length > 0) {
           setState(cloudData);
           localStorage.setItem('housing_blueprint_autosave', JSON.stringify(cloudData));
           return true;
