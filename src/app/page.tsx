@@ -17,6 +17,8 @@ export default function Home() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   const [zoom, setZoom] = useState<number>(1.0);
+  const [isCloudSaving, setIsCloudSaving] = useState<boolean>(false);
+  const [isCloudLoading, setIsCloudLoading] = useState<boolean>(false);
   const canvasRef = useRef<SVGSVGElement>(null);
 
   // Push state to undo stack before mutating
@@ -63,19 +65,75 @@ export default function Home() {
     localStorage.setItem('housing_blueprint_autosave', JSON.stringify(nextState));
   };
 
-  // Auto-load saved state from LocalStorage on mount
-  useEffect(() => {
+  // Fetch blueprint from Cloud API
+  const fetchCloudBlueprint = async () => {
+    setIsCloudLoading(true);
     try {
-      const saved = localStorage.getItem('housing_blueprint_autosave');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.rooms && parsed.items) {
-          setState(parsed);
+      const res = await fetch('/api/blueprint', { cache: 'no-store' });
+      if (res.ok) {
+        const cloudData = await res.json();
+        if (cloudData.rooms && cloudData.items) {
+          setState(cloudData);
+          localStorage.setItem('housing_blueprint_autosave', JSON.stringify(cloudData));
+          return true;
         }
       }
     } catch (e) {
-      console.error('Failed to load local autosave:', e);
+      console.error('Failed to fetch from cloud:', e);
+    } finally {
+      setIsCloudLoading(false);
     }
+    return false;
+  };
+
+  // Save current blueprint to Cloud API
+  const handleCloudSave = async () => {
+    setIsCloudSaving(true);
+    try {
+      const res = await fetch('/api/blueprint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state),
+      });
+      if (res.ok) {
+        alert('☁️ 클라우드에 저장이 완료되었습니다!\n이제 어느 PC에서든 접속하시면 이 도면 상태가 자동으로 열립니다.');
+      } else {
+        alert('클라우드 저장 중 오류가 발생했습니다.');
+      }
+    } catch (e) {
+      alert('클라우드 저장에 실패했습니다.');
+    } finally {
+      setIsCloudSaving(false);
+    }
+  };
+
+  const handleCloudLoad = async () => {
+    const success = await fetchCloudBlueprint();
+    if (success) {
+      alert('☁️ 클라우드에서 최신 도면 상태를 성공적으로 불러왔습니다!');
+    } else {
+      alert('클라우드 도면을 불러오지 못했습니다.');
+    }
+  };
+
+  // Auto-load saved state on mount (Cloud first, LocalStorage fallback)
+  useEffect(() => {
+    (async () => {
+      const loaded = await fetchCloudBlueprint();
+      if (!loaded) {
+        try {
+          const saved = localStorage.getItem('housing_blueprint_autosave');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.rooms && parsed.items) {
+              setState(parsed);
+            }
+          }
+        } catch (e) {
+          console.error('Failed to load local autosave:', e);
+        }
+      }
+    })();
   }, []);
 
   // Keyboard shortcuts (Undo, Redo, Delete, Nudge arrows)
@@ -314,6 +372,10 @@ export default function Home() {
         onExportJSON={handleExportJSON}
         onImportJSON={handleImportJSON}
         onExportPNG={handleExportPNG}
+        onCloudSave={handleCloudSave}
+        isCloudSaving={isCloudSaving}
+        onCloudLoad={handleCloudLoad}
+        isCloudLoading={isCloudLoading}
       />
 
       {/* Main Workspace (Sidebar + Canvas + Property Inspector) */}

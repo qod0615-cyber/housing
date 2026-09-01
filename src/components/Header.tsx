@@ -12,7 +12,11 @@ import {
   Maximize2,
   Image as ImageIcon,
   Save,
-  FolderOpen
+  FolderOpen,
+  Cloud,
+  CloudUpload,
+  CloudDownload,
+  Loader2
 } from 'lucide-react';
 import { BlueprintState } from '../types/floorplan';
 
@@ -32,6 +36,10 @@ interface HeaderProps {
   onExportJSON: () => void;
   onImportJSON: (json: string) => void;
   onExportPNG: () => void;
+  onCloudSave: () => void;
+  isCloudSaving: boolean;
+  onCloudLoad: () => void;
+  isCloudLoading: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -50,6 +58,10 @@ export const Header: React.FC<HeaderProps> = ({
   onExportJSON,
   onImportJSON,
   onExportPNG,
+  onCloudSave,
+  isCloudSaving,
+  onCloudLoad,
+  isCloudLoading,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -196,6 +208,35 @@ export const Header: React.FC<HeaderProps> = ({
             2번
           </button>
         </div>
+
+        {/* Global Cloud Storage Buttons */}
+        <button
+          onClick={onCloudSave}
+          disabled={isCloudSaving}
+          title="모든 기기 동기화 - 클라우드에 현재 상태 저장"
+          className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg transition flex items-center gap-1.5 text-xs font-bold shadow-lg disabled:opacity-50"
+        >
+          {isCloudSaving ? (
+            <Loader2 size={16} className="animate-spin text-white" />
+          ) : (
+            <CloudUpload size={16} />
+          )}
+          <span>{isCloudSaving ? '저장 중...' : '클라우드 저장'}</span>
+        </button>
+
+        <button
+          onClick={onCloudLoad}
+          disabled={isCloudLoading}
+          title="클라우드에서 최신 도면 상태 가져오기"
+          className="p-2 bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 rounded-lg border border-blue-500/30 transition flex items-center gap-1 text-xs font-semibold disabled:opacity-50"
+        >
+          {isCloudLoading ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <CloudDownload size={16} />
+          )}
+          <span className="hidden sm:inline">동기화</span>
+        </button>
 
         {/* JSON & Image Export */}
         <button
