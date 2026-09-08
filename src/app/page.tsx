@@ -1,6 +1,20 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { 
+  Armchair, 
+  Square, 
+  Sliders, 
+  Menu, 
+  CloudUpload, 
+  CloudDownload, 
+  Download, 
+  Upload, 
+  Image as ImageIcon, 
+  RotateCcw, 
+  X, 
+  Loader2 
+} from 'lucide-react';
 import { Header } from '../components/Header';
 import { Sidebar } from '../components/Sidebar';
 import { PropertyInspector } from '../components/PropertyInspector';
@@ -19,6 +33,9 @@ export default function Home() {
   const [zoom, setZoom] = useState<number>(1.0);
   const [isCloudSaving, setIsCloudSaving] = useState<boolean>(false);
   const [isCloudLoading, setIsCloudLoading] = useState<boolean>(false);
+
+  // Mobile navigation drawer state
+  const [mobileDrawerTab, setMobileDrawerTab] = useState<'furniture' | 'rooms' | 'properties' | 'menu' | null>(null);
   const canvasRef = useRef<SVGSVGElement>(null);
 
   // Push state to undo stack before mutating
@@ -96,7 +113,7 @@ export default function Home() {
         body: JSON.stringify(state),
       });
       if (res.ok) {
-        alert('☁️ 클라우드에 저장이 완료되었습니다!\n이제 어느 PC에서든 접속하시면 이 도면 상태가 자동으로 열립니다.');
+        alert('☁️ 클라우드에 저장이 완료되었습니다!\n이제 어느 PC/모바일에서 접속하시면 이 도면 상태가 자동으로 열립니다.');
       } else {
         alert('클라우드 저장 중 오류가 발생했습니다.');
       }
@@ -378,15 +395,24 @@ export default function Home() {
         isCloudLoading={isCloudLoading}
       />
 
-      {/* Main Workspace (Sidebar + Canvas + Property Inspector) */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
-        <Sidebar
-          state={state}
-          onAddFurniture={handleAddFurniture}
-          onAddRoom={handleAddRoom}
-          onUpdateState={(fn) => setState(fn)}
-        />
+      {/* Main Workspace */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Desktop Left Sidebar */}
+        <div className="hidden lg:flex shrink-0">
+          <Sidebar
+            state={state}
+            selectedRoomId={selectedRoomId}
+            onSelectRoom={(id) => {
+              setSelectedRoomId(id);
+              if (id) setSelectedItemId(null);
+            }}
+            onAddFurniture={handleAddFurniture}
+            onAddRoom={handleAddRoom}
+            onUpdateRoom={handleUpdateRoom}
+            onDeleteRoom={handleDeleteRoom}
+            onUpdateState={(fn) => setState(fn)}
+          />
+        </div>
 
         {/* Center Interactive Canvas */}
         <FloorPlanCanvas
@@ -412,19 +438,205 @@ export default function Home() {
           canvasRef={canvasRef}
         />
 
-        {/* Right Property Inspector Panel */}
-        <PropertyInspector
-          selectedRoom={selectedRoom}
-          selectedItem={selectedItem}
-          state={state}
-          onUpdateRoom={handleUpdateRoom}
-          onUpdateItem={handleUpdateItem}
-          onDeleteItem={handleDeleteItem}
-          onDeleteRoom={handleDeleteRoom}
-          onDuplicateItem={handleDuplicateItem}
-          onGlobalWallThicknessChange={handleGlobalWallThicknessChange}
-        />
+        {/* Desktop Right Property Inspector Panel */}
+        <div className="hidden lg:flex shrink-0">
+          <PropertyInspector
+            selectedRoom={selectedRoom}
+            selectedItem={selectedItem}
+            state={state}
+            onUpdateRoom={handleUpdateRoom}
+            onUpdateItem={handleUpdateItem}
+            onDeleteItem={handleDeleteItem}
+            onDeleteRoom={handleDeleteRoom}
+            onDuplicateItem={handleDuplicateItem}
+            onGlobalWallThicknessChange={handleGlobalWallThicknessChange}
+          />
+        </div>
+
+        {/* Mobile Slide-Up Drawer Overlay */}
+        {mobileDrawerTab && (
+          <div className="lg:hidden absolute inset-0 z-30 bg-slate-950/70 backdrop-blur-sm flex flex-col justify-end">
+            <div className="bg-slate-900 border-t border-slate-700 rounded-t-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-200">
+              {mobileDrawerTab === 'furniture' && (
+                <Sidebar
+                  state={state}
+                  selectedRoomId={selectedRoomId}
+                  onSelectRoom={(id) => {
+                    setSelectedRoomId(id);
+                    if (id) setSelectedItemId(null);
+                  }}
+                  onAddFurniture={(template) => {
+                    handleAddFurniture(template);
+                    setMobileDrawerTab(null);
+                  }}
+                  onAddRoom={handleAddRoom}
+                  onUpdateRoom={handleUpdateRoom}
+                  onDeleteRoom={handleDeleteRoom}
+                  onUpdateState={(fn) => setState(fn)}
+                  onCloseMobileDrawer={() => setMobileDrawerTab(null)}
+                />
+              )}
+
+              {mobileDrawerTab === 'rooms' && (
+                <Sidebar
+                  state={state}
+                  selectedRoomId={selectedRoomId}
+                  onSelectRoom={(id) => {
+                    setSelectedRoomId(id);
+                    if (id) setSelectedItemId(null);
+                  }}
+                  onAddFurniture={handleAddFurniture}
+                  onAddRoom={(room) => {
+                    handleAddRoom(room);
+                    setMobileDrawerTab(null);
+                  }}
+                  onUpdateRoom={handleUpdateRoom}
+                  onDeleteRoom={handleDeleteRoom}
+                  onUpdateState={(fn) => setState(fn)}
+                  onCloseMobileDrawer={() => setMobileDrawerTab(null)}
+                />
+              )}
+
+              {mobileDrawerTab === 'properties' && (
+                <PropertyInspector
+                  selectedRoom={selectedRoom}
+                  selectedItem={selectedItem}
+                  state={state}
+                  onUpdateRoom={handleUpdateRoom}
+                  onUpdateItem={handleUpdateItem}
+                  onDeleteItem={handleDeleteItem}
+                  onDeleteRoom={handleDeleteRoom}
+                  onDuplicateItem={handleDuplicateItem}
+                  onGlobalWallThicknessChange={handleGlobalWallThicknessChange}
+                  onCloseMobileDrawer={() => setMobileDrawerTab(null)}
+                />
+              )}
+
+              {mobileDrawerTab === 'menu' && (
+                <div className="p-4 space-y-4 text-xs text-slate-200 overflow-y-auto">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 className="font-bold text-sm text-white">⚙️ 도면 옵션 & 저장 메뉴</h3>
+                    <button
+                      onClick={() => setMobileDrawerTab(null)}
+                      className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  {/* Cloud Save / Load */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        handleCloudSave();
+                        setMobileDrawerTab(null);
+                      }}
+                      disabled={isCloudSaving}
+                      className="py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 shadow"
+                    >
+                      {isCloudSaving ? <Loader2 size={16} className="animate-spin" /> : <CloudUpload size={16} />}
+                      클라우드 저장
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleCloudLoad();
+                        setMobileDrawerTab(null);
+                      }}
+                      disabled={isCloudLoading}
+                      className="py-2.5 bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 rounded-xl font-bold flex items-center justify-center gap-1.5"
+                    >
+                      {isCloudLoading ? <Loader2 size={16} className="animate-spin" /> : <CloudDownload size={16} />}
+                      클라우드 불러오기
+                    </button>
+                  </div>
+
+                  {/* Unit toggle & PNG Export */}
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
+                    <button
+                      onClick={() => {
+                        handleExportPNG();
+                        setMobileDrawerTab(null);
+                      }}
+                      className="py-2 bg-indigo-600/30 hover:bg-indigo-600 border border-indigo-500/40 text-indigo-200 rounded-xl font-semibold flex items-center justify-center gap-1.5"
+                    >
+                      <ImageIcon size={16} />
+                      도면 이미지 저장
+                    </button>
+                    <button
+                      onClick={() => setState((prev) => ({ ...prev, unit: prev.unit === 'cm' ? 'm' : 'cm' }))}
+                      className="py-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-xl font-semibold flex items-center justify-center gap-1"
+                    >
+                      단위 변경 ({state.unit})
+                    </button>
+                  </div>
+
+                  {/* Preset slots */}
+                  <div className="pt-2 border-t border-slate-800 space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400 block">로컬 데이터 슬롯</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleSavePreset(1)}
+                        className="py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 font-mono text-[11px]"
+                      >
+                        1번 저장
+                      </button>
+                      <button
+                        onClick={() => handleLoadPreset(1)}
+                        className="py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-emerald-400 border border-slate-700 font-mono text-[11px]"
+                      >
+                        1번 불러오기
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="lg:hidden h-14 bg-slate-900 border-t border-slate-800 flex items-center justify-around px-2 z-40 shrink-0 select-none">
+        <button
+          onClick={() => setMobileDrawerTab(mobileDrawerTab === 'furniture' ? null : 'furniture')}
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-bold transition py-1 px-3 rounded-xl ${
+            mobileDrawerTab === 'furniture' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Armchair size={18} />
+          <span>가구</span>
+        </button>
+        <button
+          onClick={() => setMobileDrawerTab(mobileDrawerTab === 'rooms' ? null : 'rooms')}
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-bold transition py-1 px-3 rounded-xl ${
+            mobileDrawerTab === 'rooms' ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Square size={18} />
+          <span>방/구조</span>
+        </button>
+        <button
+          onClick={() => setMobileDrawerTab(mobileDrawerTab === 'properties' ? null : 'properties')}
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-bold transition py-1 px-3 rounded-xl relative ${
+            mobileDrawerTab === 'properties' ? 'text-purple-400 bg-purple-500/10' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          {(selectedRoomId || selectedItemId) && (
+            <span className="absolute top-1 right-3 w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+          )}
+          <Sliders size={18} />
+          <span>속성</span>
+        </button>
+        <button
+          onClick={() => setMobileDrawerTab(mobileDrawerTab === 'menu' ? null : 'menu')}
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-bold transition py-1 px-3 rounded-xl ${
+            mobileDrawerTab === 'menu' ? 'text-amber-400 bg-amber-500/10' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Menu size={18} />
+          <span>메뉴/저장</span>
+        </button>
+      </nav>
     </div>
   );
 }

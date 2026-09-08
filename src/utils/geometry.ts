@@ -43,6 +43,148 @@ export function snapToGridValue(val: number, gridSize: number): number {
 }
 
 /**
+ * Compute effective wall thickness for top, right, bottom, left of a room
+ */
+export function getRoomWallThickness(room: Room, defaultThickness: number = 15): { top: number; right: number; bottom: number; left: number } {
+  const base = room.wallThickness ?? defaultThickness;
+  return {
+    top: room.wallThicknesses?.top ?? base,
+    right: room.wallThicknesses?.right ?? base,
+    bottom: room.wallThicknesses?.bottom ?? base,
+    left: room.wallThicknesses?.left ?? base,
+  };
+}
+
+/**
+ * Compute Axis-Aligned Bounding Box (AABB) of an item rotated by angleDeg around its center
+ */
+export function getRotatedAABB(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  angleDeg: number = 0
+): { minX: number; maxX: number; minY: number; maxY: number } {
+  if (!angleDeg || angleDeg % 360 === 0) {
+    return { minX: x, maxX: x + w, minY: y, maxY: y + h };
+  }
+
+  const rad = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+
+  // Unrotated corners relative to center
+  const corners = [
+    { dx: -w / 2, dy: -h / 2 },
+    { dx: w / 2, dy: -h / 2 },
+    { dx: w / 2, dy: h / 2 },
+    { dx: -w / 2, dy: h / 2 },
+  ];
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (const c of corners) {
+    const rx = cx + (c.dx * cos - c.dy * sin);
+    const ry = cy + (c.dx * sin + c.dy * cos);
+    minX = Math.min(minX, rx);
+    maxX = Math.max(maxX, rx);
+    minY = Math.min(minY, ry);
+    maxY = Math.max(maxY, ry);
+  }
+
+  return { minX, maxX, minY, maxY };
+}
+
+/**
+ * Wall snap calculation for items when dragging near room inner walls.
+ * Preserves the item's rotation and snaps rotated AABB outer edges to room inner walls.
+ */
+export function findWallSnap(
+  rawX: number,
+  rawY: number,
+  itemW: number,
+  itemH: number,
+  rotationDeg: number = 0,
+  rooms: Room[],
+  threshold: number = 25
+): { snappedX: number; snappedY: number; isSnapped: boolean; wallName?: string } {
+  let snappedX = rawX;
+  let snappedY = rawY;
+  let isXSnapped = false;
+  let isYSnapped = false;
+  let closestXDist = Infinity;
+  let closestYDist = Infinity;
+  let xWallName = '';
+  let yWallName = '';
+
+  const itemCX = rawX + itemW / 2;
+  const itemCY = rawY + itemH / 2;
+  const aabb = getRotatedAABB(rawX, rawY, itemW, itemH, rotationDeg);
+
+  for (const room of rooms) {
+    const margin = 50;
+    const inXRange = itemCX >= room.x - margin && itemCX <= room.x + room.w + margin;
+    const inYRange = itemCY >= room.y - margin && itemCY <= room.y + room.h + margin;
+
+    // Check Left & Right Inner Walls if within room's Y range
+    if (inYRange) {
+      // 1. Left Inner Wall (x = room.x)
+      const distLeft = Math.abs(aabb.minX - room.x);
+      if (distLeft <= threshold && distLeft < closestXDist) {
+        closestXDist = distLeft;
+        snappedX = rawX + (room.x - aabb.minX);
+        isXSnapped = true;
+        xWallName = `${room.name} 왼쪽 벽`;
+      }
+      // 2. Right Inner Wall (x = room.x + room.w)
+      const distRight = Math.abs(aabb.maxX - (room.x + room.w));
+      if (distRight <= threshold && distRight < closestXDist) {
+        closestXDist = distRight;
+        snappedX = rawX + ((room.x + room.w) - aabb.maxX);
+        isXSnapped = true;
+        xWallName = `${room.name} 오른쪽 벽`;
+      }
+    }
+
+    // Check Top & Bottom Inner Walls if within room's X range
+    if (inXRange) {
+      // 3. Top Inner Wall (y = room.y)
+      const distTop = Math.abs(aabb.minY - room.y);
+      if (distTop <= threshold && distTop < closestYDist) {
+        closestYDist = distTop;
+        snappedY = rawY + (room.y - aabb.minY);
+        isYSnapped = true;
+        yWallName = `${room.name} 위쪽 벽`;
+      }
+      // 4. Bottom Inner Wall (y = room.y + room.h)
+      const distBottom = Math.abs(aabb.maxY - (room.y + room.h));
+      if (distBottom <= threshold && distBottom < closestYDist) {
+        closestYDist = distBottom;
+        snappedY = rawY + ((room.y + room.h) - aabb.maxY);
+        isYSnapped = true;
+        yWallName = `${room.name} 아래쪽 벽`;
+      }
+    }
+  }
+
+  const isSnapped = isXSnapped || isYSnapped;
+  const wallNames = [xWallName, yWallName].filter(Boolean).join(' & ');
+
+  return {
+    snappedX,
+    snappedY,
+    isSnapped,
+    wallName: isSnapped ? wallNames : undefined,
+  };
+}
+
+/**
  * Compute bounding box of all rooms to center canvas view
  */
 export function getBlueprintBounds(rooms: Room[], items: Furniture[]) {
@@ -56,11 +198,11 @@ export function getBlueprintBounds(rooms: Room[], items: Furniture[]) {
   let maxY = -Infinity;
 
   rooms.forEach((r) => {
-    const wt = r.wallThickness || 15;
-    minX = Math.min(minX, r.x - wt);
-    minY = Math.min(minY, r.y - wt);
-    maxX = Math.max(maxX, r.x + r.w + wt);
-    maxY = Math.max(maxY, r.y + r.h + wt);
+    const wt = getRoomWallThickness(r);
+    minX = Math.min(minX, r.x - wt.left);
+    minY = Math.min(minY, r.y - wt.top);
+    maxX = Math.max(maxX, r.x + r.w + wt.right);
+    maxY = Math.max(maxY, r.h + r.y + wt.bottom);
   });
 
   items.forEach((i) => {

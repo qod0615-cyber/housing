@@ -19,6 +19,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { BlueprintState } from '../types/floorplan';
+import { PWAInstallPrompt } from './PWAInstallPrompt';
 
 interface HeaderProps {
   state: BlueprintState;
@@ -82,25 +83,26 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="h-16 bg-slate-900 text-white border-b border-slate-800 px-4 flex items-center justify-between shrink-0 shadow-md">
       {/* Title & Branding */}
-      <div className="flex items-center space-x-3">
-        <div className="bg-blue-600 p-2 rounded-lg font-bold text-lg flex items-center justify-center shadow-inner">
+      <div className="flex items-center space-x-2 shrink-0">
+        <div className="bg-blue-600 p-1.5 sm:p-2 rounded-lg font-bold text-base sm:text-lg flex items-center justify-center shadow-inner">
           🏠
         </div>
         <div>
-          <h1 className="text-base font-bold leading-none tracking-tight flex items-center gap-2">
-            스마트 정밀 평면도 & 가구 배치 시뮬레이터
-            <span className="text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-mono font-medium">
-              Vercel Ready
+          <h1 className="text-xs sm:text-base font-bold leading-none tracking-tight flex items-center gap-1.5">
+            <span className="hidden sm:inline">스마트 정밀 평면도 & 가구 배치 시뮬레이터</span>
+            <span className="sm:hidden">스마트 평면도</span>
+            <span className="text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded-full font-mono font-medium hidden xs:inline">
+              v1.0
             </span>
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 hidden sm:block">
             진짜 방 사이즈 • 벽두께 조절 • 인터넷/콘센트 배치 • 자석 회전 스냅
           </p>
         </div>
       </div>
 
       {/* Center Controls: Undo / Redo / Zoom / Unit */}
-      <div className="flex items-center space-x-2 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700">
+      <div className="hidden md:flex items-center space-x-2 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700">
         <button
           onClick={onUndo}
           disabled={!canUndo}
@@ -174,9 +176,29 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right Controls: Storage & Export */}
-      <div className="flex items-center space-x-2">
-        {/* Preset quick buttons */}
-        <div className="flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700 text-xs">
+      <div className="flex items-center space-x-1.5 sm:space-x-2">
+        {/* Undo/Redo visible on Mobile Header */}
+        <div className="flex md:hidden items-center bg-slate-800 p-1 rounded-lg border border-slate-700">
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            className="p-1 text-slate-300 disabled:opacity-30"
+            title="되돌리기"
+          >
+            <Undo2 size={16} />
+          </button>
+          <button
+            onClick={onRedo}
+            disabled={!canRedo}
+            className="p-1 text-slate-300 disabled:opacity-30"
+            title="다시실행"
+          >
+            <Redo2 size={16} />
+          </button>
+        </div>
+
+        {/* Preset quick buttons (Desktop) */}
+        <div className="hidden lg:flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700 text-xs">
           <span className="text-slate-400 px-1 font-medium text-[11px]">저장:</span>
           <button
             onClick={() => onSavePreset(1)}
@@ -208,6 +230,9 @@ export const Header: React.FC<HeaderProps> = ({
             2번
           </button>
         </div>
+
+        {/* PWA Mobile & PC App Install Button */}
+        <PWAInstallPrompt />
 
         {/* Global Cloud Storage Buttons */}
         <button

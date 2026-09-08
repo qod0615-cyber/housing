@@ -17,27 +17,42 @@ import {
   Box,
   Layers,
   Search,
-  CheckCircle2
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+  X
 } from 'lucide-react';
 import { BlueprintState, Furniture, Room, FurnitureCategory } from '../types/floorplan';
 import { PRESET_ITEM_TEMPLATES } from '../data/defaultBlueprint';
 
 interface SidebarProps {
   state: BlueprintState;
+  selectedRoomId?: string | null;
+  onSelectRoom?: (id: string | null) => void;
   onAddFurniture: (item: Omit<Furniture, 'id'>) => void;
   onAddRoom: (room: Omit<Room, 'id'>) => void;
+  onUpdateRoom?: (room: Room) => void;
+  onDeleteRoom?: (id: string) => void;
   onUpdateState: (fn: (prev: BlueprintState) => BlueprintState) => void;
+  onCloseMobileDrawer?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   state,
+  selectedRoomId,
+  onSelectRoom,
   onAddFurniture,
   onAddRoom,
+  onUpdateRoom,
+  onDeleteRoom,
   onUpdateState,
+  onCloseMobileDrawer,
 }) => {
   const [activeTab, setActiveTab] = useState<'furniture' | 'fixtures' | 'rooms' | 'settings'>('furniture');
   const [selectedCategory, setSelectedCategory] = useState<FurnitureCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedRoomId, setExpandedRoomId] = useState<string | null>(null);
 
   // Custom furniture state
   const [custName, setCustName] = useState('');
@@ -122,7 +137,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className="w-80 bg-slate-900 border-r border-slate-800 flex flex-col h-full text-slate-200 select-none z-10 shrink-0 shadow-xl">
+    <aside className="w-full lg:w-80 bg-slate-900 border-r border-slate-800 flex flex-col h-full text-slate-200 select-none z-10 shrink-0 shadow-xl">
+      {/* Mobile Close Bar */}
+      {onCloseMobileDrawer && (
+        <div className="flex items-center justify-between px-4 py-3 bg-slate-950 border-b border-slate-800 lg:hidden">
+          <span className="font-bold text-sm text-white">🛋️ 가구 / 방 추가</span>
+          <button
+            onClick={onCloseMobileDrawer}
+            className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg transition"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
       {/* Top Tabs */}
       <div className="grid grid-cols-4 bg-slate-950 p-1.5 border-b border-slate-800 text-xs font-bold gap-1">
         <button
@@ -484,23 +511,191 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 현재 도면 내 방 목록 ({state.rooms.length})
               </h3>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {state.rooms.map((room) => (
-                  <div
-                    key={room.id}
-                    className="p-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl flex items-center justify-between text-xs"
-                  >
-                    <div>
-                      <div className="font-bold text-slate-200 flex items-center gap-1">
-                        <CheckCircle2 size={12} className="text-emerald-400" />
-                        {room.name}
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {state.rooms.map((room) => {
+                  const isExpanded = expandedRoomId === room.id || selectedRoomId === room.id;
+                  return (
+                    <div
+                      key={room.id}
+                      className={`border rounded-xl transition text-xs overflow-hidden ${
+                        selectedRoomId === room.id
+                          ? 'bg-slate-800 border-emerald-500/80 shadow-md'
+                          : 'bg-slate-800/80 border-slate-700/80 hover:border-slate-600'
+                      }`}
+                    >
+                      {/* Header */}
+                      <div
+                        onClick={() => {
+                          onSelectRoom?.(room.id);
+                          setExpandedRoomId(isExpanded ? null : room.id);
+                        }}
+                        className="p-2.5 flex items-center justify-between cursor-pointer select-none"
+                      >
+                        <div>
+                          <div className="font-bold text-slate-200 flex items-center gap-1.5">
+                            <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                            <span>{room.name}</span>
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                            {room.w} × {room.h} cm | (X:{Math.round(room.x)}, Y:{Math.round(room.y)})
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 text-slate-400">
+                          {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </div>
                       </div>
-                      <div className="text-[10px] font-mono text-slate-400 mt-0.5">
-                        {room.w} × {room.h} cm (벽두께: {room.wallThickness ?? state.globalWallThickness}cm)
-                      </div>
+
+                      {/* Expanded Room Editor */}
+                      {isExpanded && onUpdateRoom && (
+                        <div className="p-3 bg-slate-900/90 border-t border-slate-700/60 space-y-2.5">
+                          {/* Room Name */}
+                          <div>
+                            <label className="text-[10px] text-slate-400 block mb-0.5">방 이름</label>
+                            <input
+                              type="text"
+                              value={room.name}
+                              onChange={(e) => onUpdateRoom({ ...room, name: e.target.value })}
+                              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white outline-none focus:border-emerald-500"
+                            />
+                          </div>
+
+                          {/* Dimensions W x H */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] text-slate-400 block mb-0.5">가로 폭 (W: cm)</label>
+                              <input
+                                type="number"
+                                value={room.w}
+                                onChange={(e) =>
+                                  onUpdateRoom({ ...room, w: Math.max(10, parseFloat(e.target.value) || 0) })
+                                }
+                                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-mono text-center outline-none focus:border-emerald-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-slate-400 block mb-0.5">세로 깊이 (H: cm)</label>
+                              <input
+                                type="number"
+                                value={room.h}
+                                onChange={(e) =>
+                                  onUpdateRoom({ ...room, h: Math.max(10, parseFloat(e.target.value) || 0) })
+                                }
+                                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-mono text-center outline-none focus:border-emerald-500"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Position X / Y */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] text-slate-400 block mb-0.5">X 위치 (cm)</label>
+                              <input
+                                type="number"
+                                value={Math.round(room.x)}
+                                onChange={(e) =>
+                                  onUpdateRoom({ ...room, x: parseFloat(e.target.value) || 0 })
+                                }
+                                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 font-mono text-center outline-none focus:border-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-slate-400 block mb-0.5">Y 위치 (cm)</label>
+                              <input
+                                type="number"
+                                value={Math.round(room.y)}
+                                onChange={(e) =>
+                                  onUpdateRoom({ ...room, y: parseFloat(e.target.value) || 0 })
+                                }
+                                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 font-mono text-center outline-none focus:border-blue-500"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Per-wall thicknesses */}
+                          <div className="pt-2 border-t border-slate-800">
+                            <label className="text-[10px] font-bold text-amber-400 block mb-1">
+                              🧱 상/하/좌/우 벽 두께 설정 (cm)
+                            </label>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <div>
+                                <label className="text-[9px] text-slate-400 block mb-0.5">⬆️ 위 (Top)</label>
+                                <input
+                                  type="number"
+                                  value={room.wallThicknesses?.top ?? (room.wallThickness ?? state.globalWallThickness)}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                                    onUpdateRoom({
+                                      ...room,
+                                      wallThicknesses: { ...room.wallThicknesses, top: val },
+                                    });
+                                  }}
+                                  className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[11px] text-amber-300 font-mono text-center outline-none focus:border-amber-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] text-slate-400 block mb-0.5">⬇️ 아래 (Bottom)</label>
+                                <input
+                                  type="number"
+                                  value={room.wallThicknesses?.bottom ?? (room.wallThickness ?? state.globalWallThickness)}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                                    onUpdateRoom({
+                                      ...room,
+                                      wallThicknesses: { ...room.wallThicknesses, bottom: val },
+                                    });
+                                  }}
+                                  className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[11px] text-amber-300 font-mono text-center outline-none focus:border-amber-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] text-slate-400 block mb-0.5">⬅️ 좌 (Left)</label>
+                                <input
+                                  type="number"
+                                  value={room.wallThicknesses?.left ?? (room.wallThickness ?? state.globalWallThickness)}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                                    onUpdateRoom({
+                                      ...room,
+                                      wallThicknesses: { ...room.wallThicknesses, left: val },
+                                    });
+                                  }}
+                                  className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[11px] text-amber-300 font-mono text-center outline-none focus:border-amber-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] text-slate-400 block mb-0.5">➡️ 우 (Right)</label>
+                                <input
+                                  type="number"
+                                  value={room.wallThicknesses?.right ?? (room.wallThickness ?? state.globalWallThickness)}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                                    onUpdateRoom({
+                                      ...room,
+                                      wallThicknesses: { ...room.wallThicknesses, right: val },
+                                    });
+                                  }}
+                                  className="w-full bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[11px] text-amber-300 font-mono text-center outline-none focus:border-amber-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Delete Room Button */}
+                          {onDeleteRoom && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteRoom(room.id)}
+                              className="w-full mt-1 py-1.5 bg-red-600/20 hover:bg-red-600 border border-red-500/30 text-red-300 hover:text-white rounded-lg text-[11px] font-semibold transition flex items-center justify-center gap-1"
+                            >
+                              <Trash2 size={13} />
+                              방 삭제하기
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

@@ -11,6 +11,13 @@ export type FixtureSubType =
 
 export type FurnitureCategory = 'bedroom' | 'living' | 'kitchen' | 'storage' | 'appliances' | 'fixtures' | 'custom';
 
+export interface WallThicknesses {
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+}
+
 export interface Room {
   id: string;
   name: string;
@@ -19,6 +26,7 @@ export interface Room {
   x: number; // x position in cm
   y: number; // y position in cm
   wallThickness: number; // wall thickness in cm (default: 15)
+  wallThicknesses?: WallThicknesses;
   color?: string;
 }
 

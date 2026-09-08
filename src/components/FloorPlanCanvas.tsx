@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Room, Furniture, BlueprintState } from '../types/floorplan';
-import { getSnappedAngle, formatUnit, getBlueprintBounds } from '../utils/geometry';
+import { getSnappedAngle, formatUnit, getBlueprintBounds, getRoomWallThickness, findWallSnap } from '../utils/geometry';
 import { 
   ZoomIn, 
   ZoomOut, 
@@ -79,6 +79,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     active: boolean;
     angle: number | null;
     itemId: string | null;
+    wallName?: string;
   }>({ active: false, angle: null, itemId: null });
 
   // Center view on canvas items
@@ -137,20 +138,31 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
   // Background mouse down (Pan & Deselect)
   const handleBgMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 1 || isSpacePressed || e.target === canvasRef.current || (e.target as HTMLElement).tagName === 'svg') {
-      onSelectRoom(null);
-      onSelectItem(null);
-      setShowColorPicker(false);
+    onSelectRoom(null);
+    onSelectItem(null);
+    setShowColorPicker(false);
+
+    if (e.button === 0 || e.button === 1 || isSpacePressed) {
       setIsPanning(true);
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  // Touch state for 2-finger pinch & pan
+  const [touchState, setTouchState] = useState<{
+    initialDist: number;
+    initialZoom: number;
+    initialPan: { x: number; y: number };
+    midX: number;
+    midY: number;
+  } | null>(null);
+
+  // Unified position update helper
+  const moveAt = (clientX: number, clientY: number) => {
     if (isPanning) {
       setPan({
-        x: e.clientX - panStart.x,
-        y: e.clientY - panStart.y,
+        x: clientX - panStart.x,
+        y: clientY - panStart.y,
       });
       return;
     }
@@ -158,10 +170,10 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     if (!dragTarget) return;
 
     // Convert mouse coordinates to SVG canvas space (cm)
-    const currentMouseX = (e.clientX - pan.x) / zoom;
-    const currentMouseY = (e.clientY - pan.y) / zoom;
-    const dx = (e.clientX - dragTarget.startX) / zoom;
-    const dy = (e.clientY - dragTarget.startY) / zoom;
+    const currentMouseX = (clientX - pan.x) / zoom;
+    const currentMouseY = (clientY - pan.y) / zoom;
+    const dx = (clientX - dragTarget.startX) / zoom;
+    const dy = (clientY - dragTarget.startY) / zoom;
 
     if (dragTarget.type === 'item') {
       const item = state.items.find((i) => i.id === dragTarget.id);
@@ -174,7 +186,23 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         newY = Math.round(newY / state.gridSize) * state.gridSize;
       }
 
-      onUpdateItem({ ...item, x: newX, y: newY });
+      // Wall Auto Magnet Snap (Preserves current item rotation and snaps AABB outer edges to inner walls)
+      const wallSnap = findWallSnap(newX, newY, item.w, item.h, item.rotation, state.rooms, 25);
+      const newRot = item.rotation;
+      if (wallSnap.isSnapped) {
+        newX = wallSnap.snappedX;
+        newY = wallSnap.snappedY;
+        setSnapFeedback({
+          active: true,
+          angle: newRot,
+          itemId: item.id,
+          wallName: wallSnap.wallName,
+        });
+      } else if (snapFeedback.active && snapFeedback.itemId === item.id) {
+        setSnapFeedback({ active: false, angle: null, itemId: null });
+      }
+
+      onUpdateItem({ ...item, x: newX, y: newY, rotation: newRot });
     } else if (dragTarget.type === 'room') {
       const room = state.rooms.find((r) => r.id === dragTarget.id);
       if (!room) return;
@@ -232,24 +260,107 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     }
   };
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    moveAt(e.clientX, e.clientY);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      // 2-finger Pinch to Zoom & Pan
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const midX = (t1.clientX + t2.clientX) / 2;
+      const midY = (t1.clientY + t2.clientY) / 2;
+
+      setTouchState({
+        initialDist: dist,
+        initialZoom: zoom,
+        initialPan: { ...pan },
+        midX,
+        midY,
+      });
+      return;
+    }
+
+    if (e.touches.length === 1 && (e.target === canvasRef.current || (e.target as HTMLElement).tagName === 'svg')) {
+      onSelectRoom(null);
+      onSelectItem(null);
+      setShowColorPicker(false);
+      setIsPanning(true);
+      setPanStart({ x: e.touches[0].clientX - pan.x, y: e.touches[0].clientY - pan.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchState) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const scaleRatio = dist / touchState.initialDist;
+      const newZoom = Math.min(2.5, Math.max(0.3, touchState.initialZoom * scaleRatio));
+
+      const midX = (t1.clientX + t2.clientX) / 2;
+      const midY = (t1.clientY + t2.clientY) / 2;
+      const dx = midX - touchState.midX;
+      const dy = midY - touchState.midY;
+
+      setZoom(newZoom);
+      setPan({
+        x: touchState.initialPan.x + dx,
+        y: touchState.initialPan.y + dy,
+      });
+      return;
+    }
+
+    if (e.touches.length === 1) {
+      moveAt(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setTouchState(null);
+    handleMouseUp();
+  };
+
   const handleMouseUp = () => {
     setIsPanning(false);
     setDragTarget(null);
     setSnapFeedback({ active: false, angle: null, itemId: null });
   };
 
+  // Helper to extract clientX, clientY from MouseEvent or TouchEvent
+  const getEventCoords = (e: React.MouseEvent | React.TouchEvent) => {
+    if ('touches' in e && e.touches.length > 0) {
+      return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+    }
+    const mouseEv = e as React.MouseEvent;
+    return { clientX: mouseEv.clientX, clientY: mouseEv.clientY };
+  };
+
   // Drag starters
-  const startItemDrag = (e: React.MouseEvent, item: Furniture) => {
+  const startItemDrag = (e: React.MouseEvent | React.TouchEvent, item: Furniture) => {
     e.stopPropagation();
     if (isSpacePressed) return;
+
+    const isTouch = 'touches' in e;
+    const isAlreadySelected = selectedItemId === item.id;
+
     onSelectItem(item.id);
     onSelectRoom(null);
     setShowColorPicker(false);
+
+    // On touch devices: 1st tap selects/focuses item only. Subsequent touch/drag moves item.
+    if (isTouch && !isAlreadySelected) {
+      return;
+    }
+
+    const { clientX, clientY } = getEventCoords(e);
     setDragTarget({
       type: 'item',
       id: item.id,
-      startX: e.clientX,
-      startY: e.clientY,
+      startX: clientX,
+      startY: clientY,
       initialX: item.x,
       initialY: item.y,
       initialW: item.w,
@@ -260,17 +371,28 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     });
   };
 
-  const startRoomDrag = (e: React.MouseEvent, room: Room) => {
+  const startRoomDrag = (e: React.MouseEvent | React.TouchEvent, room: Room) => {
     e.stopPropagation();
     if (isSpacePressed) return;
+
+    const isTouch = 'touches' in e;
+    const isAlreadySelected = selectedRoomId === room.id;
+
     onSelectRoom(room.id);
     onSelectItem(null);
     setShowColorPicker(false);
+
+    // On touch devices: 1st tap selects/focuses room only. Subsequent touch/drag moves room.
+    if (isTouch && !isAlreadySelected) {
+      return;
+    }
+
+    const { clientX, clientY } = getEventCoords(e);
     setDragTarget({
       type: 'room',
       id: room.id,
-      startX: e.clientX,
-      startY: e.clientY,
+      startX: clientX,
+      startY: clientY,
       initialX: room.x,
       initialY: room.y,
       initialW: room.w,
@@ -281,16 +403,17 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     });
   };
 
-  const startItemRotate = (e: React.MouseEvent, item: Furniture) => {
+  const startItemRotate = (e: React.MouseEvent | React.TouchEvent, item: Furniture) => {
     e.stopPropagation();
+    const { clientX, clientY } = getEventCoords(e);
     onSelectItem(item.id);
     const centerX = item.x + item.w / 2;
     const centerY = item.y + item.h / 2;
     setDragTarget({
       type: 'rotate-item',
       id: item.id,
-      startX: e.clientX,
-      startY: e.clientY,
+      startX: clientX,
+      startY: clientY,
       initialX: item.x,
       initialY: item.y,
       initialW: item.w,
@@ -301,13 +424,14 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     });
   };
 
-  const startItemResize = (e: React.MouseEvent, item: Furniture) => {
+  const startItemResize = (e: React.MouseEvent | React.TouchEvent, item: Furniture) => {
     e.stopPropagation();
+    const { clientX, clientY } = getEventCoords(e);
     setDragTarget({
       type: 'resize-item',
       id: item.id,
-      startX: e.clientX,
-      startY: e.clientY,
+      startX: clientX,
+      startY: clientY,
       initialX: item.x,
       initialY: item.y,
       initialW: item.w,
@@ -318,13 +442,14 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     });
   };
 
-  const startRoomResize = (e: React.MouseEvent, room: Room) => {
+  const startRoomResize = (e: React.MouseEvent | React.TouchEvent, room: Room) => {
     e.stopPropagation();
+    const { clientX, clientY } = getEventCoords(e);
     setDragTarget({
       type: 'resize-room',
       id: room.id,
-      startX: e.clientX,
-      startY: e.clientY,
+      startX: clientX,
+      startY: clientY,
       initialX: room.x,
       initialY: room.y,
       initialW: room.w,
@@ -342,14 +467,17 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
   return (
     <div
-      className={`flex-1 bg-slate-950 relative overflow-hidden select-none flex items-center justify-center ${
-        isSpacePressed || isPanning ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+      className={`flex-1 bg-slate-950 relative overflow-hidden select-none flex items-center justify-center touch-none ${
+        isPanning || dragTarget ? 'cursor-grabbing' : isSpacePressed ? 'cursor-grab' : 'cursor-default'
       }`}
       onMouseDown={handleBgMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {/* SVG Canvas */}
       <svg ref={canvasRef} className="w-full h-full absolute inset-0">
@@ -373,19 +501,24 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
           {/* ================= ROOMS LAYER ================= */}
           {state.rooms.map((room) => {
-            const wt = room.wallThickness ?? state.globalWallThickness;
+            const wt = getRoomWallThickness(room, state.globalWallThickness);
             const isSelected = selectedRoomId === room.id;
             const areaSquareMeters = ((room.w * room.h) / 10000).toFixed(1);
             const areaPyung = (((room.w * room.h) / 10000) * 0.3025).toFixed(1);
 
             return (
-              <g key={room.id} className="group cursor-move" onMouseDown={(e) => startRoomDrag(e, room)}>
+              <g
+                key={room.id}
+                className="group cursor-pointer"
+                onMouseDown={(e) => startRoomDrag(e, room)}
+                onTouchStart={(e) => startRoomDrag(e, room)}
+              >
                 {/* Outer Wall */}
                 <rect
-                  x={room.x - wt}
-                  y={room.y - wt}
-                  width={room.w + wt * 2}
-                  height={room.h + wt * 2}
+                  x={room.x - wt.left}
+                  y={room.y - wt.top}
+                  width={room.w + wt.left + wt.right}
+                  height={room.h + wt.top + wt.bottom}
                   fill="#334155"
                   stroke={isSelected ? '#10b981' : '#1e293b'}
                   strokeWidth={isSelected ? 3 : 1}
@@ -436,7 +569,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                 {/* Top Wall Width */}
                 <text
                   x={room.x + room.w / 2}
-                  y={room.y - wt - 6}
+                  y={room.y - wt.top - 6}
                   textAnchor="middle"
                   fill="#94a3b8"
                   fontSize="11"
@@ -449,7 +582,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
                 {/* Left Wall Height */}
                 <text
-                  x={room.x - wt - 8}
+                  x={room.x - wt.left - 8}
                   y={room.y + room.h / 2}
                   textAnchor="middle"
                   dominantBaseline="middle"
@@ -457,7 +590,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                   fontSize="11"
                   fontWeight="bold"
                   fontFamily="monospace"
-                  transform={`rotate(-90, ${room.x - wt - 8}, ${room.y + room.h / 2})`}
+                  transform={`rotate(-90, ${room.x - wt.left - 8}, ${room.y + room.h / 2})`}
                   pointerEvents="none"
                 >
                   {formatUnit(room.h, state.unit)}
@@ -467,10 +600,10 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                 {isSelected && (
                   <g>
                     <rect
-                      x={room.x - wt - 2}
-                      y={room.y - wt - 2}
-                      width={room.w + wt * 2 + 4}
-                      height={room.h + wt * 2 + 4}
+                      x={room.x - wt.left - 2}
+                      y={room.y - wt.top - 2}
+                      width={room.w + wt.left + wt.right + 4}
+                      height={room.h + wt.top + wt.bottom + 4}
                       fill="none"
                       stroke="#10b981"
                       strokeWidth="2"
@@ -478,14 +611,23 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                       pointerEvents="none"
                     />
                     <circle
-                      cx={room.x + room.w + wt}
-                      cy={room.y + room.h + wt}
+                      cx={room.x + room.w + wt.right}
+                      cy={room.y + room.h + wt.bottom}
+                      r="18"
+                      fill="transparent"
+                      className="cursor-se-resize"
+                      onMouseDown={(e) => startRoomResize(e, room)}
+                      onTouchStart={(e) => startRoomResize(e, room)}
+                    />
+                    <circle
+                      cx={room.x + room.w + wt.right}
+                      cy={room.y + room.h + wt.bottom}
                       r={8}
                       fill="#10b981"
                       stroke="#ffffff"
                       strokeWidth="2"
-                      className="cursor-se-resize shadow-md"
-                      onMouseDown={(e) => startRoomResize(e, room)}
+                      className="shadow-md"
+                      pointerEvents="none"
                     />
                   </g>
                 )}
@@ -506,8 +648,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
               <g
                 key={item.id}
                 transform={`translate(${item.x}, ${item.y}) rotate(${item.rotation}, ${item.w / 2}, ${item.h / 2})`}
-                className="cursor-move"
+                className="cursor-pointer"
                 onMouseDown={(e) => startItemDrag(e, item)}
+                onTouchStart={(e) => startItemDrag(e, item)}
               >
                 {/* 1. DOOR */}
                 {isDoor ? (
@@ -665,18 +808,33 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                     <circle
                       cx={item.w / 2}
                       cy="-22"
-                      r="8"
+                      r="18"
+                      fill="transparent"
+                      className="cursor-pointer"
+                      onMouseDown={(e) => startItemRotate(e, item)}
+                      onTouchStart={(e) => startItemRotate(e, item)}
+                    />
+                    <circle
+                      cx={item.w / 2}
+                      cy="-22"
+                      r="9"
                       fill={isSnapActive ? '#16a34a' : '#2563eb'}
                       stroke="#ffffff"
-                      strokeWidth="2"
-                      className="cursor-pointer hover:scale-125 transition-transform"
-                      onMouseDown={(e) => startItemRotate(e, item)}
+                      strokeWidth="2.5"
+                      pointerEvents="none"
                     />
 
                     {/* Snap Tooltip */}
                     {isSnapActive && (
                       <g transform={`translate(${item.w / 2}, -38)`}>
-                        <rect x="-24" y="-10" width="48" height="16" rx="4" fill="#16a34a" />
+                        <rect
+                          x={snapFeedback.wallName ? -55 : -24}
+                          y="-10"
+                          width={snapFeedback.wallName ? 110 : 48}
+                          height="16"
+                          rx="4"
+                          fill="#16a34a"
+                        />
                         <text
                           x="0"
                           y="1"
@@ -685,25 +843,35 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                           fill="#ffffff"
                           fontSize="9"
                           fontWeight="extrabold"
-                          fontFamily="monospace"
+                          fontFamily="sans-serif"
                         >
-                          {snapFeedback.angle}° SNAP!
+                          {snapFeedback.wallName ? `🧲 ${snapFeedback.wallName}` : `${snapFeedback.angle}° SNAP!`}
                         </text>
                       </g>
                     )}
 
                     {/* Resize Handle */}
                     {!isSocket && !isInternet && (
-                      <circle
-                        cx={item.w}
-                        cy={item.h}
-                        r="7"
-                        fill="#2563eb"
-                        stroke="#ffffff"
-                        strokeWidth="2"
-                        className="cursor-se-resize shadow-md"
-                        onMouseDown={(e) => startItemResize(e, item)}
-                      />
+                      <g>
+                        <circle
+                          cx={item.w}
+                          cy={item.h}
+                          r="18"
+                          fill="transparent"
+                          className="cursor-se-resize"
+                          onMouseDown={(e) => startItemResize(e, item)}
+                          onTouchStart={(e) => startItemResize(e, item)}
+                        />
+                        <circle
+                          cx={item.w}
+                          cy={item.h}
+                          r="8"
+                          fill="#2563eb"
+                          stroke="#ffffff"
+                          strokeWidth="2.5"
+                          pointerEvents="none"
+                        />
+                      </g>
                     )}
                   </g>
                 )}
