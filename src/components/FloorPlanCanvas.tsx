@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Room, Furniture, BlueprintState } from '../types/floorplan';
-import { getSnappedAngle, formatUnit, getBlueprintBounds, getRoomWallThickness, findWallSnap } from '../utils/geometry';
+import { getSnappedAngle, formatUnit, getBlueprintBounds, getRoomWallThickness, findWallSnap, findFurnitureSnap, getCollidingItemIds } from '../utils/geometry';
 import { 
   ZoomIn, 
   ZoomOut, 
@@ -186,9 +186,19 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         newY = Math.round(newY / state.gridSize) * state.gridSize;
       }
 
-      // Wall Auto Magnet Snap (Preserves current item rotation and snaps AABB outer edges to inner walls)
+      // 1. Wall Auto Magnet Snap (Preserves current item rotation and snaps AABB outer edges to inner walls & corners)
       const wallSnap = findWallSnap(newX, newY, item.w, item.h, item.rotation, state.rooms, 25);
-      const newRot = item.rotation;
+      let newRot = item.rotation;
+
+      // Auto-align wall fixtures (sockets, windows, doors, internet) to wall direction
+      const isFixture = item.type === 'socket' || item.type === 'internet' || item.type === 'window' || item.type === 'door';
+      if (wallSnap.isSnapped && isFixture && wallSnap.wallDirection && wallSnap.wallDirection !== 'corner') {
+        if (wallSnap.wallDirection === 'top') newRot = 0;
+        if (wallSnap.wallDirection === 'right') newRot = 90;
+        if (wallSnap.wallDirection === 'bottom') newRot = 180;
+        if (wallSnap.wallDirection === 'left') newRot = 270;
+      }
+
       if (wallSnap.isSnapped) {
         newX = wallSnap.snappedX;
         newY = wallSnap.snappedY;
@@ -198,8 +208,21 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           itemId: item.id,
           wallName: wallSnap.wallName,
         });
-      } else if (snapFeedback.active && snapFeedback.itemId === item.id) {
-        setSnapFeedback({ active: false, angle: null, itemId: null });
+      } else {
+        // 2. Furniture-to-Furniture Magnet Snap
+        const furnSnap = findFurnitureSnap(newX, newY, item, state.items, 15);
+        if (furnSnap.isSnapped) {
+          newX = furnSnap.snappedX;
+          newY = furnSnap.snappedY;
+          setSnapFeedback({
+            active: true,
+            angle: newRot,
+            itemId: item.id,
+            wallName: furnSnap.targetItemName,
+          });
+        } else if (snapFeedback.active && snapFeedback.itemId === item.id) {
+          setSnapFeedback({ active: false, angle: null, itemId: null });
+        }
       }
 
       onUpdateItem({ ...item, x: newX, y: newY, rotation: newRot });
@@ -461,6 +484,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   };
 
   const selectedItemObj = state.items.find((i) => i.id === selectedItemId);
+  const collidingItemIds = getCollidingItemIds(state.items);
 
   // Quick Swatch colors
   const SWATCH_COLORS = ['#60a5fa', '#34d399', '#fde047', '#fb923c', '#f472b6', '#a78bfa', '#cbd5e1', '#ef4444'];
@@ -643,15 +667,51 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
             const isInternet = item.type === 'internet';
             const isWindow = item.type === 'window';
             const isSnapActive = snapFeedback.active && snapFeedback.itemId === item.id;
+            const isColliding = collidingItemIds.has(item.id);
 
             return (
-              <g
-                key={item.id}
-                transform={`translate(${item.x}, ${item.y}) rotate(${item.rotation}, ${item.w / 2}, ${item.h / 2})`}
-                className="cursor-pointer"
-                onMouseDown={(e) => startItemDrag(e, item)}
-                onTouchStart={(e) => startItemDrag(e, item)}
-              >
+                <g
+                  key={item.id}
+                  transform={`translate(${item.x}, ${item.y}) rotate(${item.rotation}, ${item.w / 2}, ${item.h / 2})`}
+                  className="cursor-pointer"
+                  onMouseDown={(e) => startItemDrag(e, item)}
+                  onTouchStart={(e) => startItemDrag(e, item)}
+                >
+                  {/* Collision Warning Overlay */}
+                  {isColliding && (
+                    <g pointerEvents="none">
+                      <rect
+                        x="-4"
+                        y="-4"
+                        width={item.w + 8}
+                        height={item.h + 8}
+                        fill="rgba(239, 68, 68, 0.15)"
+                        stroke="#ef4444"
+                        strokeWidth="2.5"
+                        strokeDasharray="4 4"
+                        rx="6"
+                      />
+                      <rect
+                        x={item.w / 2 - 45}
+                        y="-24"
+                        width="90"
+                        height="18"
+                        rx="4"
+                        fill="#ef4444"
+                      />
+                      <text
+                        x={item.w / 2}
+                        y="-15"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill="#ffffff"
+                        fontSize="9"
+                        fontWeight="bold"
+                      >
+                        ⚠️ 가구 중첩/충돌
+                      </text>
+                    </g>
+                  )}
                 {/* 1. DOOR */}
                 {isDoor ? (
                   <g>
@@ -734,17 +794,30 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                 ) : (
                   /* 5. STANDARD FURNITURE */
                   <g>
-                    <rect
-                      x="0"
-                      y="0"
-                      width={item.w}
-                      height={item.h}
-                      rx="4"
-                      fill={item.color || '#fde047'}
-                      stroke={isSelected ? '#2563eb' : '#94a3b8'}
-                      strokeWidth={isSelected ? 2.5 : 1.5}
-                      className="shadow-sm"
-                    />
+                    {item.shape === 'circle' ? (
+                      <ellipse
+                        cx={item.w / 2}
+                        cy={item.h / 2}
+                        rx={item.w / 2}
+                        ry={item.h / 2}
+                        fill={item.color || '#fde047'}
+                        stroke={isSelected ? '#2563eb' : '#94a3b8'}
+                        strokeWidth={isSelected ? 2.5 : 1.5}
+                        className="shadow-sm"
+                      />
+                    ) : (
+                      <rect
+                        x="0"
+                        y="0"
+                        width={item.w}
+                        height={item.h}
+                        rx={item.shape === 'rect' ? 0 : 12}
+                        fill={item.color || '#fde047'}
+                        stroke={isSelected ? '#2563eb' : '#94a3b8'}
+                        strokeWidth={isSelected ? 2.5 : 1.5}
+                        className="shadow-sm"
+                      />
+                    )}
                     <text
                       x={item.w / 2}
                       y={item.h / 2 - 4}

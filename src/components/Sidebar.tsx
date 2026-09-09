@@ -58,6 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [custName, setCustName] = useState('');
   const [custW, setCustW] = useState(100);
   const [custH, setCustH] = useState(100);
+  const [custShape, setCustShape] = useState<'rect' | 'rounded' | 'circle'>('rounded');
   const [custCat, setCustCat] = useState<FurnitureCategory>('custom');
 
   // Custom room state
@@ -108,14 +109,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       name: custName.trim(),
       w: custW,
       h: custH,
-      x: 200,
-      y: 200,
       rotation: 0,
       type: 'furniture',
+      shape: custShape,
       category: custCat,
-      color: '#cbd5e1',
+      color: custShape === 'circle' ? '#60a5fa' : custShape === 'rect' ? '#34d399' : '#fde047',
+      x: 200,
+      y: 200,
     });
-
     setCustName('');
   };
 

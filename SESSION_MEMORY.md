@@ -54,6 +54,13 @@
    - **방 개별 벽 두께 카운터 초기값 버그 수정**: `undefined` 시 실질 벽 두께 fallback 값 바인딩하여 `▲` 클릭 시 15cm -> 16cm로 정상 작동.
    - **마우스 호버 커서 정밀도 개선**: 평소 호버 시 기본 화살표 포인터 유지, 드래그 중일 때만 grabbing 커서 전환.
 
+8. **📱 모바일 크롬 앱 다운로드 & PWA 설치 기능 구축 완료 (2026-09-09)**
+   - **Web App Manifest (`/manifest.webmanifest`)**: Next.js App Router 동적 매니페스트 구축 (`display: "standalone"`, `theme_color: "#0f172a"`).
+   - **PWA 전용 앱 아이콘 세트 생성**: Android (`192x192`, `512x512`), iOS Safari (`apple-touch-icon.png`).
+   - **원클릭 모바일 앱 다운로드 설치 컴포넌트 (`PWAInstallPrompt.tsx`)**: 크롬 브라우저 접속 시 헤더 및 하단 바텀 시트에 `📲 앱 설치` 버튼 연동 ➔ 클릭 시 스마트폰 바탕화면에 즉시 앱 설치. iOS Safari 사용자 가이드 팝업 포함.
+   - **Service Worker (`public/sw.js`)**: 로컬 오프라인 캐싱 및 고속 앱 실행 적용.
+   - **Vercel 라이브 배포 완료**: [https://housing-bay.vercel.app](https://housing-bay.vercel.app)
+
 ---
 
 ## 3. ⚠️ 사용자 작업 지침 (Strict Workflow Directive)

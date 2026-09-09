@@ -419,6 +419,50 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
         )}
       </div>
 
+      {/* Shape Selector (for standard furniture) */}
+      {selectedItem.type === 'furniture' && (
+        <div>
+          <label className="text-xs font-semibold text-slate-400 block mb-1.5">
+            도형 모양
+          </label>
+          <div className="grid grid-cols-3 gap-1.5">
+            <button
+              type="button"
+              onClick={() => onUpdateItem({ ...selectedItem, shape: 'rect' })}
+              className={`py-1.5 px-1.5 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1 border ${
+                selectedItem.shape === 'rect'
+                  ? 'bg-blue-600 text-white border-blue-500 shadow'
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+              }`}
+            >
+              ⬛ 각진
+            </button>
+            <button
+              type="button"
+              onClick={() => onUpdateItem({ ...selectedItem, shape: 'rounded' })}
+              className={`py-1.5 px-1.5 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1 border ${
+                !selectedItem.shape || selectedItem.shape === 'rounded'
+                  ? 'bg-blue-600 text-white border-blue-500 shadow'
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+              }`}
+            >
+              🔲 둥근
+            </button>
+            <button
+              type="button"
+              onClick={() => onUpdateItem({ ...selectedItem, shape: 'circle' })}
+              className={`py-1.5 px-1.5 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1 border ${
+                selectedItem.shape === 'circle'
+                  ? 'bg-blue-600 text-white border-blue-500 shadow'
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+              }`}
+            >
+              🟡 원형
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Rotation Control with Magnetic Snap Indicator */}
       <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80 flex flex-col gap-2.5">
         <div className="flex items-center justify-between">

@@ -39,6 +39,7 @@ export interface Furniture {
   y: number; // y position in cm
   rotation: number; // 0 - 359 degrees
   type: ItemType;
+  shape?: 'rect' | 'rounded' | 'circle';
   subType?: FixtureSubType;
   category: FurnitureCategory;
   color?: string;

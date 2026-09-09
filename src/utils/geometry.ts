@@ -103,7 +103,7 @@ export function getRotatedAABB(
 
 /**
  * Wall snap calculation for items when dragging near room inner walls.
- * Preserves the item's rotation and snaps rotated AABB outer edges to room inner walls.
+ * Features Coordinated 2-Wall Corner Snap to prevent jitter at room corners.
  */
 export function findWallSnap(
   rawX: number,
@@ -113,7 +113,7 @@ export function findWallSnap(
   rotationDeg: number = 0,
   rooms: Room[],
   threshold: number = 25
-): { snappedX: number; snappedY: number; isSnapped: boolean; wallName?: string } {
+): { snappedX: number; snappedY: number; isSnapped: boolean; wallName?: string; wallDirection?: 'top' | 'right' | 'bottom' | 'left' | 'corner' } {
   let snappedX = rawX;
   let snappedY = rawY;
   let isXSnapped = false;
@@ -122,6 +122,7 @@ export function findWallSnap(
   let closestYDist = Infinity;
   let xWallName = '';
   let yWallName = '';
+  let wallDir: 'top' | 'right' | 'bottom' | 'left' | 'corner' | undefined = undefined;
 
   const itemCX = rawX + itemW / 2;
   const itemCY = rawY + itemH / 2;
@@ -132,43 +133,89 @@ export function findWallSnap(
     const inXRange = itemCX >= room.x - margin && itemCX <= room.x + room.w + margin;
     const inYRange = itemCY >= room.y - margin && itemCY <= room.y + room.h + margin;
 
-    // Check Left & Right Inner Walls if within room's Y range
+    if (!inXRange && !inYRange) continue;
+
+    const distLeft = Math.abs(aabb.minX - room.x);
+    const distRight = Math.abs(aabb.maxX - (room.x + room.w));
+    const distTop = Math.abs(aabb.minY - room.y);
+    const distBottom = Math.abs(aabb.maxY - (room.y + room.h));
+
+    // ================= 1. COORDINATED CORNER SNAP (2-Wall Joint Snap) =================
+    // Top-Left Corner
+    if (distLeft <= threshold && distTop <= threshold) {
+      return {
+        snappedX: rawX + (room.x - aabb.minX),
+        snappedY: rawY + (room.y - aabb.minY),
+        isSnapped: true,
+        wallName: `${room.name} 상단-왼쪽 구석 코너`,
+        wallDirection: 'corner',
+      };
+    }
+    // Top-Right Corner
+    if (distRight <= threshold && distTop <= threshold) {
+      return {
+        snappedX: rawX + ((room.x + room.w) - aabb.maxX),
+        snappedY: rawY + (room.y - aabb.minY),
+        isSnapped: true,
+        wallName: `${room.name} 상단-오른쪽 구석 코너`,
+        wallDirection: 'corner',
+      };
+    }
+    // Bottom-Left Corner
+    if (distLeft <= threshold && distBottom <= threshold) {
+      return {
+        snappedX: rawX + (room.x - aabb.minX),
+        snappedY: rawY + ((room.y + room.h) - aabb.maxY),
+        isSnapped: true,
+        wallName: `${room.name} 하단-왼쪽 구석 코너`,
+        wallDirection: 'corner',
+      };
+    }
+    // Bottom-Right Corner
+    if (distRight <= threshold && distBottom <= threshold) {
+      return {
+        snappedX: rawX + ((room.x + room.w) - aabb.maxX),
+        snappedY: rawY + ((room.y + room.h) - aabb.maxY),
+        isSnapped: true,
+        wallName: `${room.name} 하단-오른쪽 구석 코너`,
+        wallDirection: 'corner',
+      };
+    }
+
+    // ================= 2. SINGLE WALL SNAP =================
+    // Check Left & Right Inner Walls if within room Y range
     if (inYRange) {
-      // 1. Left Inner Wall (x = room.x)
-      const distLeft = Math.abs(aabb.minX - room.x);
       if (distLeft <= threshold && distLeft < closestXDist) {
         closestXDist = distLeft;
         snappedX = rawX + (room.x - aabb.minX);
         isXSnapped = true;
         xWallName = `${room.name} 왼쪽 벽`;
+        wallDir = 'left';
       }
-      // 2. Right Inner Wall (x = room.x + room.w)
-      const distRight = Math.abs(aabb.maxX - (room.x + room.w));
       if (distRight <= threshold && distRight < closestXDist) {
         closestXDist = distRight;
         snappedX = rawX + ((room.x + room.w) - aabb.maxX);
         isXSnapped = true;
         xWallName = `${room.name} 오른쪽 벽`;
+        wallDir = 'right';
       }
     }
 
-    // Check Top & Bottom Inner Walls if within room's X range
+    // Check Top & Bottom Inner Walls if within room X range
     if (inXRange) {
-      // 3. Top Inner Wall (y = room.y)
-      const distTop = Math.abs(aabb.minY - room.y);
       if (distTop <= threshold && distTop < closestYDist) {
         closestYDist = distTop;
         snappedY = rawY + (room.y - aabb.minY);
         isYSnapped = true;
         yWallName = `${room.name} 위쪽 벽`;
+        wallDir = 'top';
       }
-      // 4. Bottom Inner Wall (y = room.y + room.h)
-      const distBottom = Math.abs(aabb.maxY - (room.y + room.h));
       if (distBottom <= threshold && distBottom < closestYDist) {
         closestYDist = distBottom;
         snappedY = rawY + ((room.y + room.h) - aabb.maxY);
         isYSnapped = true;
         yWallName = `${room.name} 아래쪽 벽`;
+        wallDir = 'bottom';
       }
     }
   }
@@ -181,7 +228,107 @@ export function findWallSnap(
     snappedY,
     isSnapped,
     wallName: isSnapped ? wallNames : undefined,
+    wallDirection: isSnapped ? wallDir : undefined,
   };
+}
+
+/**
+ * Snap item edges to adjacent furniture items (Snap-to-Furniture)
+ */
+export function findFurnitureSnap(
+  rawX: number,
+  rawY: number,
+  currentItem: Furniture,
+  allItems: Furniture[],
+  threshold: number = 15
+): { snappedX: number; snappedY: number; isSnapped: boolean; targetItemName?: string } {
+  let snappedX = rawX;
+  let snappedY = rawY;
+  let isSnapped = false;
+  let targetItemName = '';
+  let closestDist = Infinity;
+
+  const currentAABB = getRotatedAABB(rawX, rawY, currentItem.w, currentItem.h, currentItem.rotation);
+  const currentW = currentAABB.maxX - currentAABB.minX;
+  const currentH = currentAABB.maxY - currentAABB.minY;
+
+  for (const other of allItems) {
+    if (other.id === currentItem.id) continue;
+
+    const otherAABB = getRotatedAABB(other.x, other.y, other.w, other.h, other.rotation);
+
+    const inYOverlap = !(currentAABB.maxY < otherAABB.minY || currentAABB.minY > otherAABB.maxY);
+    const inXOverlap = !(currentAABB.maxX < otherAABB.minX || currentAABB.minX > otherAABB.maxX);
+
+    // 1. Attach to Other Item's Left Edge
+    if (inYOverlap) {
+      const distRightToLeft = Math.abs(currentAABB.maxX - otherAABB.minX);
+      if (distRightToLeft <= threshold && distRightToLeft < closestDist) {
+        closestDist = distRightToLeft;
+        snappedX = rawX + (otherAABB.minX - currentAABB.maxX);
+        isSnapped = true;
+        targetItemName = `${other.name} 왼쪽 밀착`;
+      }
+      // Attach to Other Item's Right Edge
+      const distLeftToRight = Math.abs(currentAABB.minX - otherAABB.maxX);
+      if (distLeftToRight <= threshold && distLeftToRight < closestDist) {
+        closestDist = distLeftToRight;
+        snappedX = rawX + (otherAABB.maxX - currentAABB.minX);
+        isSnapped = true;
+        targetItemName = `${other.name} 오른쪽 밀착`;
+      }
+    }
+
+    // 2. Attach to Other Item's Top Edge
+    if (inXOverlap) {
+      const distBottomToTop = Math.abs(currentAABB.maxY - otherAABB.minY);
+      if (distBottomToTop <= threshold && distBottomToTop < closestDist) {
+        closestDist = distBottomToTop;
+        snappedY = rawY + (otherAABB.minY - currentAABB.maxY);
+        isSnapped = true;
+        targetItemName = `${other.name} 상단 밀착`;
+      }
+      // Attach to Other Item's Bottom Edge
+      const distTopToBottom = Math.abs(currentAABB.minY - otherAABB.maxY);
+      if (distTopToBottom <= threshold && distTopToBottom < closestDist) {
+        closestDist = distTopToBottom;
+        snappedY = rawY + (otherAABB.maxY - currentAABB.minY);
+        isSnapped = true;
+        targetItemName = `${other.name} 하단 밀착`;
+      }
+    }
+  }
+
+  return { snappedX, snappedY, isSnapped, targetItemName: isSnapped ? targetItemName : undefined };
+}
+
+/**
+ * Detect overlapping collisions between all furniture items
+ */
+export function getCollidingItemIds(items: Furniture[]): Set<string> {
+  const collidingIds = new Set<string>();
+
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const itemA = items[i];
+      const itemB = items[j];
+
+      const aabbA = getRotatedAABB(itemA.x, itemA.y, itemA.w, itemA.h, itemA.rotation);
+      const aabbB = getRotatedAABB(itemB.x, itemB.y, itemB.w, itemB.h, itemB.rotation);
+
+      // Check AABB overlap (with 2cm tolerance margin)
+      const margin = 2;
+      const overlapsX = aabbA.minX < aabbB.maxX - margin && aabbA.maxX > aabbB.minX + margin;
+      const overlapsY = aabbA.minY < aabbB.maxY - margin && aabbA.maxY > aabbB.minY + margin;
+
+      if (overlapsX && overlapsY) {
+        collidingIds.add(itemA.id);
+        collidingIds.add(itemB.id);
+      }
+    }
+  }
+
+  return collidingIds;
 }
 
 /**
