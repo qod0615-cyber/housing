@@ -303,7 +303,8 @@ export function findFurnitureSnap(
 }
 
 /**
- * Detect overlapping collisions between all furniture items
+ * Detect overlapping collisions between standard floor furniture items.
+ * Wall fixtures (sockets, LAN ports, doors, windows) are embedded on walls and excluded from floor collisions.
  */
 export function getCollidingItemIds(items: Furniture[]): Set<string> {
   const collidingIds = new Set<string>();
@@ -312,6 +313,11 @@ export function getCollidingItemIds(items: Furniture[]): Set<string> {
     for (let j = i + 1; j < items.length; j++) {
       const itemA = items[i];
       const itemB = items[j];
+
+      // Exclude wall fixtures from floor furniture collisions
+      if (itemA.type !== 'furniture' || itemB.type !== 'furniture') {
+        continue;
+      }
 
       const aabbA = getRotatedAABB(itemA.x, itemA.y, itemA.w, itemA.h, itemA.rotation);
       const aabbB = getRotatedAABB(itemB.x, itemB.y, itemB.w, itemB.h, itemB.rotation);

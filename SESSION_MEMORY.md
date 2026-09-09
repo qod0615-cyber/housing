@@ -61,6 +61,12 @@
    - **Service Worker (`public/sw.js`)**: 로컬 오프라인 캐싱 및 고속 앱 실행 적용.
    - **Vercel 라이브 배포 완료**: [https://housing-bay.vercel.app](https://housing-bay.vercel.app)
 
+9. **🧩 방 구석(코너) 2면 통합 스냅 & 가구 간 자석 밀착 & 중첩 충돌 경고 구현 완료 (2026-09-09)**
+   - **방 구석 2면 코너 통합 스냅 (Coordinated Corner Snap)**: 방 4개 꼭짓점 구석(상단-왼쪽, 상단-오른쪽, 하단-왼쪽, 하단-오른쪽) 다가갈 때 X축/Y축 스냅을 동시 보정하여 두 벽 충돌 및 덜덜 떨림 현상 완전 해결. (`🧲 [방이름] 상단-왼쪽 구석 코너` 툴팁 표시)
+   - **가구 대 가구 자석 밀착 (Snap-to-Furniture)**: 가구와 가구를 배치할 때 외곽선 15cm 접근 시 서로 나란히 딱 붙도록 자석 스냅 구현.
+   - **가구 중첩/충돌 감지 및 경고 (Collision Alert)**: 가구가 서로 완전히 겹칠 경우 빨간색 경고 테두리 (`stroke="#ef4444"`) 및 `⚠️ 가구 중첩/충돌` 시각적 배지 레이어 표시.
+   - **도형 모양 선택기 (Shape Selector)**: `Furniture` 인터페이스에 `shape: 'rect' | 'rounded' | 'circle'` 속성 추가, SVG `<ellipse>` 및 `rx=0` 렌더링 지원, `PropertyInspector`에서 1클릭 도형 변경 및 `Sidebar` 5대 기본 블록 추가 버튼 제공.
+
 ---
 
 ## 3. ⚠️ 사용자 작업 지침 (Strict Workflow Directive)

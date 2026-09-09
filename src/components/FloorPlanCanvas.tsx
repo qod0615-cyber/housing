@@ -186,8 +186,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         newY = Math.round(newY / state.gridSize) * state.gridSize;
       }
 
-      // 1. Wall Auto Magnet Snap (Preserves current item rotation and snaps AABB outer edges to inner walls & corners)
-      const wallSnap = findWallSnap(newX, newY, item.w, item.h, item.rotation, state.rooms, 25);
+      // 1. Wall Auto Magnet Snap (Activates only when directly touching wall edge <= 8cm)
+      const wallSnap = findWallSnap(newX, newY, item.w, item.h, item.rotation, state.rooms, 8);
       let newRot = item.rotation;
 
       // Auto-align wall fixtures (sockets, windows, doors, internet) to wall direction
@@ -209,8 +209,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           wallName: wallSnap.wallName,
         });
       } else {
-        // 2. Furniture-to-Furniture Magnet Snap
-        const furnSnap = findFurnitureSnap(newX, newY, item, state.items, 15);
+        // 2. Furniture-to-Furniture Magnet Snap (Activates only when directly touching adjacent furniture <= 8cm)
+        const furnSnap = findFurnitureSnap(newX, newY, item, state.items, 8);
         if (furnSnap.isSnapped) {
           newX = furnSnap.snappedX;
           newY = furnSnap.snappedY;
@@ -962,6 +962,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
             left: Math.max(10, Math.min(window.innerWidth - 300, pan.x + selectedItemObj.x * zoom + (selectedItemObj.w * zoom) / 2 - 120)),
             top: Math.max(70, pan.y + selectedItemObj.y * zoom - 50),
           }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
         >
           <button
             onClick={() => onUpdateItem({ ...selectedItemObj, rotation: (selectedItemObj.rotation + 45) % 360 })}
