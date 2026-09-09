@@ -176,55 +176,56 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right Controls: Storage & Export */}
-      <div className="flex items-center space-x-1.5 sm:space-x-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar shrink-0">
         {/* Undo/Redo visible on Mobile Header */}
-        <div className="flex md:hidden items-center bg-slate-800 p-1 rounded-lg border border-slate-700">
+        <div className="flex md:hidden items-center bg-slate-800 p-1 rounded-lg border border-slate-700 h-8 shrink-0">
           <button
             onClick={onUndo}
             disabled={!canUndo}
-            className="p-1 text-slate-300 disabled:opacity-30"
+            className="p-1 text-slate-300 hover:text-white disabled:opacity-30 transition"
             title="되돌리기"
           >
-            <Undo2 size={16} />
+            <Undo2 size={15} />
           </button>
+          <div className="w-[1px] h-3 bg-slate-700 my-auto" />
           <button
             onClick={onRedo}
             disabled={!canRedo}
-            className="p-1 text-slate-300 disabled:opacity-30"
+            className="p-1 text-slate-300 hover:text-white disabled:opacity-30 transition"
             title="다시실행"
           >
-            <Redo2 size={16} />
+            <Redo2 size={15} />
           </button>
         </div>
 
         {/* Preset quick buttons (Desktop) */}
-        <div className="hidden lg:flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700 text-xs">
-          <span className="text-slate-400 px-1 font-medium text-[11px]">저장:</span>
+        <div className="hidden lg:flex items-center gap-1 bg-slate-800/80 p-1 rounded-lg border border-slate-700 text-xs h-9 shrink-0">
+          <span className="text-slate-400 px-1 font-medium text-[11px] whitespace-nowrap">저장:</span>
           <button
             onClick={() => onSavePreset(1)}
-            className="px-2 py-1 bg-slate-700 hover:bg-blue-600 rounded font-semibold transition"
+            className="px-2 py-0.5 bg-slate-700 hover:bg-blue-600 rounded font-semibold transition whitespace-nowrap"
             title="1번 슬롯에 저장"
           >
             1번
           </button>
           <button
             onClick={() => onSavePreset(2)}
-            className="px-2 py-1 bg-slate-700 hover:bg-blue-600 rounded font-semibold transition"
+            className="px-2 py-0.5 bg-slate-700 hover:bg-blue-600 rounded font-semibold transition whitespace-nowrap"
             title="2번 슬롯에 저장"
           >
             2번
           </button>
-          <span className="text-slate-400 px-1 font-medium text-[11px]">불러오기:</span>
+          <span className="text-slate-400 px-1 font-medium text-[11px] whitespace-nowrap">불러오기:</span>
           <button
             onClick={() => onLoadPreset(1)}
-            className="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 rounded font-semibold transition"
+            className="px-2 py-0.5 bg-emerald-700 hover:bg-emerald-600 rounded font-semibold transition whitespace-nowrap"
             title="1번 슬롯 불러오기"
           >
             1번
           </button>
           <button
             onClick={() => onLoadPreset(2)}
-            className="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 rounded font-semibold transition"
+            className="px-2 py-0.5 bg-emerald-700 hover:bg-emerald-600 rounded font-semibold transition whitespace-nowrap"
             title="2번 슬롯 불러오기"
           >
             2번
@@ -239,12 +240,12 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onCloudSave}
           disabled={isCloudSaving}
           title="모든 기기 동기화 - 클라우드에 현재 상태 저장"
-          className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg transition flex items-center gap-1.5 text-xs font-bold shadow-lg disabled:opacity-50"
+          className="h-8 sm:h-9 px-2.5 sm:px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg transition flex items-center gap-1.5 text-xs font-bold shadow-md disabled:opacity-50 whitespace-nowrap shrink-0"
         >
           {isCloudSaving ? (
-            <Loader2 size={16} className="animate-spin text-white" />
+            <Loader2 size={15} className="animate-spin text-white" />
           ) : (
-            <CloudUpload size={16} />
+            <CloudUpload size={15} />
           )}
           <span>{isCloudSaving ? '저장 중...' : '클라우드 저장'}</span>
         </button>
@@ -253,12 +254,12 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onCloudLoad}
           disabled={isCloudLoading}
           title="클라우드에서 최신 도면 상태 가져오기"
-          className="p-2 bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 rounded-lg border border-blue-500/30 transition flex items-center gap-1 text-xs font-semibold disabled:opacity-50"
+          className="h-8 sm:h-9 px-2 sm:px-2.5 bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 rounded-lg border border-blue-500/30 transition flex items-center gap-1 text-xs font-semibold disabled:opacity-50 whitespace-nowrap shrink-0"
         >
           {isCloudLoading ? (
-            <Loader2 size={16} className="animate-spin" />
+            <Loader2 size={15} className="animate-spin" />
           ) : (
-            <CloudDownload size={16} />
+            <CloudDownload size={15} />
           )}
           <span className="hidden sm:inline">동기화</span>
         </button>
@@ -267,18 +268,18 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onExportJSON}
           title="JSON으로 내보내기"
-          className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-200 border border-slate-700 transition flex items-center gap-1 text-xs font-semibold"
+          className="h-8 sm:h-9 px-2 sm:px-2.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-200 border border-slate-700 transition flex items-center gap-1 text-xs font-semibold whitespace-nowrap shrink-0"
         >
-          <Download size={16} />
-          <span className="hidden sm:inline">저장</span>
+          <Download size={15} />
+          <span className="hidden sm:inline">JSON</span>
         </button>
 
         <button
           onClick={() => fileInputRef.current?.click()}
           title="JSON파일 불러오기"
-          className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-200 border border-slate-700 transition flex items-center gap-1 text-xs font-semibold"
+          className="h-8 sm:h-9 px-2 sm:px-2.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-200 border border-slate-700 transition flex items-center gap-1 text-xs font-semibold whitespace-nowrap shrink-0"
         >
-          <Upload size={16} />
+          <Upload size={15} />
           <span className="hidden sm:inline">열기</span>
         </button>
         <input
@@ -292,18 +293,19 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onExportPNG}
           title="도면 이미지 저장"
-          className="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition flex items-center gap-1.5 text-xs font-semibold shadow-md"
+          className="h-8 sm:h-9 px-2.5 sm:px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition flex items-center gap-1.5 text-xs font-bold shadow-md whitespace-nowrap shrink-0"
         >
-          <ImageIcon size={16} />
-          <span>이미지 저장</span>
+          <ImageIcon size={15} />
+          <span className="hidden sm:inline">이미지 저장</span>
+          <span className="sm:hidden">이미지</span>
         </button>
 
         <button
           onClick={onResetDefault}
           title="초기 도면으로 원복"
-          className="p-2 bg-slate-800 hover:bg-red-900/40 text-slate-400 hover:text-red-300 rounded-lg border border-slate-700 transition"
+          className="h-8 sm:h-9 w-8 sm:w-9 p-0 flex items-center justify-center bg-slate-800 hover:bg-red-900/40 text-slate-400 hover:text-red-300 rounded-lg border border-slate-700 transition whitespace-nowrap shrink-0"
         >
-          <RotateCcw size={16} />
+          <RotateCcw size={15} />
         </button>
       </div>
     </header>

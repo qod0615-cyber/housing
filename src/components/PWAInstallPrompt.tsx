@@ -94,7 +94,7 @@ export const PWAInstallPrompt: React.FC = () => {
       <button
         onClick={handleInstallClick}
         title="스마트폰 / PC에 바탕화면 앱으로 다운로드 및 설치"
-        className="px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg transition flex items-center gap-1.5 text-xs font-extrabold shadow-lg border border-emerald-400/40 animate-pulse"
+        className="h-8 sm:h-9 px-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg transition flex items-center gap-1.5 text-xs font-extrabold shadow-md border border-emerald-400/40 animate-pulse whitespace-nowrap shrink-0"
       >
         <Smartphone size={15} />
         <span>앱 설치</span>

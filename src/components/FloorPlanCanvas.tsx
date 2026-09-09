@@ -957,55 +957,55 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       {/* ================= ON-CANVAS FLOATING TOOLBAR (ITEM ACTION BAR) ================= */}
       {selectedItemObj && (
         <div
-          className="absolute z-20 bg-slate-900/90 backdrop-blur-md border border-slate-700/90 p-1.5 rounded-xl shadow-2xl flex items-center gap-1 text-xs text-white"
+          className="absolute z-20 bg-slate-900/95 backdrop-blur-md border border-slate-700/90 p-1 rounded-xl shadow-2xl flex items-center gap-1 text-xs text-white whitespace-nowrap shrink-0"
           style={{
-            left: Math.max(10, Math.min(window.innerWidth - 300, pan.x + selectedItemObj.x * zoom + (selectedItemObj.w * zoom) / 2 - 120)),
-            top: Math.max(70, pan.y + selectedItemObj.y * zoom - 50),
+            left: Math.max(10, Math.min(window.innerWidth - 260, pan.x + selectedItemObj.x * zoom + (selectedItemObj.w * zoom) / 2 - 120)),
+            top: Math.max(70, pan.y + selectedItemObj.y * zoom - 48),
           }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
         >
           <button
             onClick={() => onUpdateItem({ ...selectedItemObj, rotation: (selectedItemObj.rotation + 45) % 360 })}
-            className="px-2 py-1 bg-slate-800 hover:bg-blue-600 rounded-lg flex items-center gap-1 font-semibold transition"
+            className="h-7 px-2 bg-slate-800 hover:bg-blue-600 rounded-lg flex items-center gap-1 font-semibold text-[11px] transition shrink-0"
             title="45도 회전"
           >
-            <RotateCw size={13} />
+            <RotateCw size={12} />
             +45°
           </button>
           <button
             onClick={() => onUpdateItem({ ...selectedItemObj, rotation: (selectedItemObj.rotation + 90) % 360 })}
-            className="px-2 py-1 bg-slate-800 hover:bg-blue-600 rounded-lg flex items-center gap-1 font-semibold transition"
+            className="h-7 px-2 bg-slate-800 hover:bg-blue-600 rounded-lg flex items-center gap-1 font-semibold text-[11px] transition shrink-0"
             title="90도 회전"
           >
-            <RotateCw size={13} />
+            <RotateCw size={12} />
             +90°
           </button>
           <button
             onClick={() => onDuplicateItem(selectedItemObj)}
-            className="p-1.5 bg-slate-800 hover:bg-blue-600 rounded-lg transition"
+            className="h-7 w-7 flex items-center justify-center bg-slate-800 hover:bg-blue-600 rounded-lg transition shrink-0"
             title="복제"
           >
-            <Copy size={14} />
+            <Copy size={13} />
           </button>
           <button
             onClick={() => setShowColorPicker((prev) => !prev)}
-            className="p-1.5 bg-slate-800 hover:bg-purple-600 rounded-lg transition"
+            className="h-7 w-7 flex items-center justify-center bg-slate-800 hover:bg-purple-600 rounded-lg transition shrink-0"
             title="색상 변경"
           >
-            <Palette size={14} />
+            <Palette size={13} />
           </button>
           <button
             onClick={() => onDeleteItem(selectedItemObj.id)}
-            className="p-1.5 bg-red-600/30 hover:bg-red-600 text-red-300 hover:text-white rounded-lg transition"
+            className="h-7 w-7 flex items-center justify-center bg-red-600/30 hover:bg-red-600 text-red-300 hover:text-white rounded-lg transition shrink-0"
             title="삭제"
           >
-            <Trash2 size={14} />
+            <Trash2 size={13} />
           </button>
 
           {/* Swatch Quick Color Picker */}
           {showColorPicker && (
-            <div className="absolute top-10 left-0 bg-slate-900 border border-slate-700 p-2 rounded-xl shadow-xl flex gap-1 z-30">
+            <div className="absolute top-9 left-0 bg-slate-900 border border-slate-700 p-2 rounded-xl shadow-xl flex gap-1 z-30">
               {SWATCH_COLORS.map((c) => (
                 <button
                   key={c}
@@ -1023,15 +1023,15 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       )}
 
       {/* ================= BOTTOM CANVAS FLOATING CONTROLS ================= */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-1.5 rounded-2xl shadow-2xl flex items-center gap-2 text-xs text-slate-300">
+      <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-10 bg-slate-900/95 backdrop-blur-md border border-slate-800 p-1.5 rounded-2xl shadow-2xl flex items-center gap-1.5 sm:gap-2 text-xs text-slate-300 max-w-[95vw] overflow-x-auto no-scrollbar whitespace-nowrap shrink-0">
         {/* Zoom */}
-        <div className="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-xl border border-slate-700">
+        <div className="h-8 flex items-center gap-1 bg-slate-800/90 px-2 rounded-xl border border-slate-700/80 shrink-0">
           <button
             onClick={() => setZoom((z) => Math.max(0.3, z - 0.1))}
             className="p-1 hover:text-white transition"
             title="축소"
           >
-            <ZoomOut size={15} />
+            <ZoomOut size={14} />
           </button>
           <span className="font-mono text-[11px] w-10 text-center font-bold text-slate-200">
             {Math.round(zoom * 100)}%
@@ -1041,23 +1041,23 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
             className="p-1 hover:text-white transition"
             title="확대"
           >
-            <ZoomIn size={15} />
+            <ZoomIn size={14} />
           </button>
           <button
             onClick={centerView}
             className="p-1 hover:text-blue-400 transition"
             title="중앙 위치 맞춤"
           >
-            <Maximize2 size={14} />
+            <Maximize2 size={13} />
           </button>
         </div>
 
-        <div className="h-4 w-[1px] bg-slate-800" />
+        <div className="h-4 w-[1px] bg-slate-800 shrink-0" />
 
         {/* Grid & Snap Toggles */}
         <button
           onClick={onToggleGridSnap}
-          className={`px-2.5 py-1 rounded-xl flex items-center gap-1.5 font-semibold transition border ${
+          className={`h-8 px-2.5 rounded-xl flex items-center gap-1.5 font-semibold transition border shrink-0 text-xs ${
             state.snapToGrid
               ? 'bg-purple-600/30 text-purple-300 border-purple-500/50 shadow'
               : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
@@ -1069,7 +1069,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
         <button
           onClick={onToggleAngleSnap}
-          className={`px-2.5 py-1 rounded-xl flex items-center gap-1.5 font-semibold transition border ${
+          className={`h-8 px-2.5 rounded-xl flex items-center gap-1.5 font-semibold transition border shrink-0 text-xs ${
             state.snapAngle
               ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500/50 shadow'
               : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
@@ -1079,16 +1079,16 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           <span>회전 자석</span>
         </button>
 
-        <div className="h-4 w-[1px] bg-slate-800" />
+        <div className="h-4 w-[1px] bg-slate-800 shrink-0" />
 
         {/* Keyboard Shortcuts Button */}
         <button
           onClick={() => setShowShortcutsModal(true)}
-          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl flex items-center gap-1 transition"
+          className="h-8 px-2 sm:px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl flex items-center gap-1.5 transition border border-slate-700/80 shrink-0 text-xs"
           title="단축키 안내 (?)"
         >
           <Keyboard size={14} />
-          <span className="hidden md:inline font-medium text-[11px]">단축키</span>
+          <span className="hidden sm:inline font-medium text-[11px]">단축키</span>
         </button>
       </div>
 
