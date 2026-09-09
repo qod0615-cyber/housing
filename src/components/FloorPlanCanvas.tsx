@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Room, Furniture, BlueprintState } from '../types/floorplan';
-import { getSnappedAngle, formatUnit, getBlueprintBounds, getRoomWallThickness, findWallSnap, findFurnitureSnap, getCollidingItemIds } from '../utils/geometry';
+import { getSnappedAngle, formatUnit, getBlueprintBounds, getRoomWallThickness, findWallSnap, findFurnitureSnap, getCollidingItemIds, getRotatedAABB } from '../utils/geometry';
 import { 
   ZoomIn, 
   ZoomOut, 
@@ -186,8 +186,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         newY = Math.round(newY / state.gridSize) * state.gridSize;
       }
 
-      // 1. Wall Auto Magnet Snap (Activates only when directly touching wall edge <= 8cm)
-      const wallSnap = findWallSnap(newX, newY, item.w, item.h, item.rotation, state.rooms, 8);
+      // 1. Wall Auto Magnet Snap & Hard Wall Boundary Clamping
+      const isFurnitureItem = item.type === 'furniture';
+      const wallSnap = findWallSnap(newX, newY, item.w, item.h, item.rotation, state.rooms, 15, isFurnitureItem);
       let newRot = item.rotation;
 
       // Auto-align wall fixtures (sockets, windows, doors, internet) to wall direction
@@ -955,72 +956,92 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       </svg>
 
       {/* ================= ON-CANVAS FLOATING TOOLBAR (ITEM ACTION BAR) ================= */}
-      {selectedItemObj && (
-        <div
-          className="absolute z-20 bg-slate-900/95 backdrop-blur-md border border-slate-700/90 p-1 rounded-xl shadow-2xl flex items-center gap-1 text-xs text-white whitespace-nowrap shrink-0"
-          style={{
-            left: Math.max(10, Math.min(window.innerWidth - 260, pan.x + selectedItemObj.x * zoom + (selectedItemObj.w * zoom) / 2 - 120)),
-            top: Math.max(70, pan.y + selectedItemObj.y * zoom - 48),
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={() => onUpdateItem({ ...selectedItemObj, rotation: (selectedItemObj.rotation + 45) % 360 })}
-            className="h-7 px-2 bg-slate-800 hover:bg-blue-600 rounded-lg flex items-center gap-1 font-semibold text-[11px] transition shrink-0"
-            title="45도 회전"
-          >
-            <RotateCw size={12} />
-            +45°
-          </button>
-          <button
-            onClick={() => onUpdateItem({ ...selectedItemObj, rotation: (selectedItemObj.rotation + 90) % 360 })}
-            className="h-7 px-2 bg-slate-800 hover:bg-blue-600 rounded-lg flex items-center gap-1 font-semibold text-[11px] transition shrink-0"
-            title="90도 회전"
-          >
-            <RotateCw size={12} />
-            +90°
-          </button>
-          <button
-            onClick={() => onDuplicateItem(selectedItemObj)}
-            className="h-7 w-7 flex items-center justify-center bg-slate-800 hover:bg-blue-600 rounded-lg transition shrink-0"
-            title="복제"
-          >
-            <Copy size={13} />
-          </button>
-          <button
-            onClick={() => setShowColorPicker((prev) => !prev)}
-            className="h-7 w-7 flex items-center justify-center bg-slate-800 hover:bg-purple-600 rounded-lg transition shrink-0"
-            title="색상 변경"
-          >
-            <Palette size={13} />
-          </button>
-          <button
-            onClick={() => onDeleteItem(selectedItemObj.id)}
-            className="h-7 w-7 flex items-center justify-center bg-red-600/30 hover:bg-red-600 text-red-300 hover:text-white rounded-lg transition shrink-0"
-            title="삭제"
-          >
-            <Trash2 size={13} />
-          </button>
+      {selectedItemObj && (() => {
+        const aabb = getRotatedAABB(
+          selectedItemObj.x,
+          selectedItemObj.y,
+          selectedItemObj.w,
+          selectedItemObj.h,
+          selectedItemObj.rotation
+        );
+        const itemScreenLeft = pan.x + aabb.minX * zoom;
+        const itemScreenRight = pan.x + aabb.maxX * zoom;
+        const itemScreenTop = pan.y + aabb.minY * zoom;
+        const itemScreenBottom = pan.y + aabb.maxY * zoom;
+        const itemScreenCenterX = (itemScreenLeft + itemScreenRight) / 2;
 
-          {/* Swatch Quick Color Picker */}
-          {showColorPicker && (
-            <div className="absolute top-9 left-0 bg-slate-900 border border-slate-700 p-2 rounded-xl shadow-xl flex gap-1 z-30">
-              {SWATCH_COLORS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => {
-                    onUpdateItem({ ...selectedItemObj, color: c });
-                    setShowColorPicker(false);
-                  }}
-                  className="w-5 h-5 rounded-full border border-white/20 hover:scale-125 transition-transform"
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        const toolbarWidth = 240;
+        const leftPos = Math.max(10, Math.min(window.innerWidth - toolbarWidth - 10, itemScreenCenterX - toolbarWidth / 2));
+        // If there's enough space above item top edge (>= 75px), place above. Otherwise, flip BELOW the item.
+        const topPos = (itemScreenTop - 46 >= 75) ? itemScreenTop - 46 : itemScreenBottom + 12;
+
+        return (
+          <div
+            className="absolute z-20 bg-slate-900/95 backdrop-blur-md border border-slate-700/90 p-1 rounded-xl shadow-2xl flex items-center gap-1 text-xs text-white whitespace-nowrap shrink-0"
+            style={{
+              left: leftPos,
+              top: topPos,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => onUpdateItem({ ...selectedItemObj, rotation: (selectedItemObj.rotation + 45) % 360 })}
+              className="h-7 px-2 bg-slate-800 hover:bg-blue-600 rounded-lg flex items-center gap-1 font-semibold text-[11px] transition shrink-0"
+              title="45도 회전"
+            >
+              <RotateCw size={12} />
+              +45°
+            </button>
+            <button
+              onClick={() => onUpdateItem({ ...selectedItemObj, rotation: (selectedItemObj.rotation + 90) % 360 })}
+              className="h-7 px-2 bg-slate-800 hover:bg-blue-600 rounded-lg flex items-center gap-1 font-semibold text-[11px] transition shrink-0"
+              title="90도 회전"
+            >
+              <RotateCw size={12} />
+              +90°
+            </button>
+            <button
+              onClick={() => onDuplicateItem(selectedItemObj)}
+              className="h-7 w-7 flex items-center justify-center bg-slate-800 hover:bg-blue-600 rounded-lg transition shrink-0"
+              title="복제"
+            >
+              <Copy size={13} />
+            </button>
+            <button
+              onClick={() => setShowColorPicker((prev) => !prev)}
+              className="h-7 w-7 flex items-center justify-center bg-slate-800 hover:bg-purple-600 rounded-lg transition shrink-0"
+              title="색상 변경"
+            >
+              <Palette size={13} />
+            </button>
+            <button
+              onClick={() => onDeleteItem(selectedItemObj.id)}
+              className="h-7 w-7 flex items-center justify-center bg-red-600/30 hover:bg-red-600 text-red-300 hover:text-white rounded-lg transition shrink-0"
+              title="삭제"
+            >
+              <Trash2 size={13} />
+            </button>
+
+            {/* Swatch Quick Color Picker */}
+            {showColorPicker && (
+              <div className="absolute top-9 left-0 bg-slate-900 border border-slate-700 p-2 rounded-xl shadow-xl flex gap-1 z-30">
+                {SWATCH_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => {
+                      onUpdateItem({ ...selectedItemObj, color: c });
+                      setShowColorPicker(false);
+                    }}
+                    className="w-5 h-5 rounded-full border border-white/20 hover:scale-125 transition-transform"
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ================= BOTTOM CANVAS FLOATING CONTROLS ================= */}
       <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-10 bg-slate-900/95 backdrop-blur-md border border-slate-800 p-1.5 rounded-2xl shadow-2xl flex items-center gap-1.5 sm:gap-2 text-xs text-slate-300 max-w-[95vw] overflow-x-auto no-scrollbar whitespace-nowrap shrink-0">

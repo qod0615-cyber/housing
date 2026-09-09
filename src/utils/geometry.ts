@@ -112,7 +112,8 @@ export function findWallSnap(
   itemH: number,
   rotationDeg: number = 0,
   rooms: Room[],
-  threshold: number = 15
+  threshold: number = 15,
+  isFurniture: boolean = true
 ): { snappedX: number; snappedY: number; isSnapped: boolean; wallName?: string; wallDirection?: 'top' | 'right' | 'bottom' | 'left' | 'corner' } {
   let snappedX = rawX;
   let snappedY = rawY;
@@ -142,14 +143,16 @@ export function findWallSnap(
 
     // 1. Check Left & Right Inner Walls if item is within room Y range
     if (inYRange) {
-      if (distLeft <= threshold && distLeft < closestXDist) {
+      // Snap or Hard Clamp Left Wall (prevent penetration)
+      if ((distLeft <= threshold || (isFurniture && aabb.minX < room.x)) && distLeft < closestXDist) {
         closestXDist = distLeft;
         snappedX = rawX + (room.x - aabb.minX);
         isXSnapped = true;
         xWallName = `${room.name} 왼쪽 벽`;
         wallDir = 'left';
       }
-      if (distRight <= threshold && distRight < closestXDist) {
+      // Snap or Hard Clamp Right Wall (prevent penetration)
+      if ((distRight <= threshold || (isFurniture && aabb.maxX > room.x + room.w)) && distRight < closestXDist) {
         closestXDist = distRight;
         snappedX = rawX + ((room.x + room.w) - aabb.maxX);
         isXSnapped = true;
@@ -160,14 +163,16 @@ export function findWallSnap(
 
     // 2. Check Top & Bottom Inner Walls if item is within room X range
     if (inXRange) {
-      if (distTop <= threshold && distTop < closestYDist) {
+      // Snap or Hard Clamp Top Wall (prevent penetration)
+      if ((distTop <= threshold || (isFurniture && aabb.minY < room.y)) && distTop < closestYDist) {
         closestYDist = distTop;
         snappedY = rawY + (room.y - aabb.minY);
         isYSnapped = true;
         yWallName = `${room.name} 위쪽 벽`;
         wallDir = 'top';
       }
-      if (distBottom <= threshold && distBottom < closestYDist) {
+      // Snap or Hard Clamp Bottom Wall (prevent penetration)
+      if ((distBottom <= threshold || (isFurniture && aabb.maxY > room.y + room.h)) && distBottom < closestYDist) {
         closestYDist = distBottom;
         snappedY = rawY + ((room.y + room.h) - aabb.maxY);
         isYSnapped = true;
