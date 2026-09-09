@@ -10,9 +10,13 @@ import {
   Compass, 
   Sliders,
   Sparkles,
-  X
+  X,
+  Magnet,
+  MapPin,
+  Move
 } from 'lucide-react';
 import { Room, Furniture, BlueprintState } from '../types/floorplan';
+import { findWallSnap, findFurnitureSnap } from '../utils/geometry';
 
 interface PropertyInspectorProps {
   selectedRoom: Room | null;
@@ -319,6 +323,25 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
   const isFixture = selectedItem.type === 'socket' || selectedItem.type === 'internet';
   const isDoor = selectedItem.type === 'door';
 
+  // Room belonging & wall attachment calculations
+  const itemCX = selectedItem.x + selectedItem.w / 2;
+  const itemCY = selectedItem.y + selectedItem.h / 2;
+  const currentRoom = state.rooms.find(
+    (r) => itemCX >= r.x && itemCX <= r.x + r.w && itemCY >= r.y && itemCY <= r.y + r.h
+  ) || state.rooms[0] || null;
+
+  const relX = currentRoom ? Math.round(selectedItem.x - currentRoom.x) : Math.round(selectedItem.x);
+  const relY = currentRoom ? Math.round(selectedItem.y - currentRoom.y) : Math.round(selectedItem.y);
+
+  const wallSnapRes = findWallSnap(selectedItem.x, selectedItem.y, selectedItem.w, selectedItem.h, selectedItem.rotation, state.rooms, 15);
+  const furnSnapRes = !wallSnapRes.isSnapped ? findFurnitureSnap(selectedItem.x, selectedItem.y, selectedItem, state.items, 15) : null;
+
+  const snapStatusText = wallSnapRes.isSnapped
+    ? wallSnapRes.wallName
+    : furnSnapRes?.isSnapped
+    ? furnSnapRes.targetItemName
+    : null;
+
   return (
     <div className="bg-slate-900 border-l border-slate-800 w-full lg:w-80 p-4 text-slate-200 flex flex-col gap-4 overflow-y-auto">
       {/* Header */}
@@ -370,6 +393,44 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
           onChange={(e) => onUpdateItem({ ...selectedItem, name: e.target.value })}
           className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none font-medium"
         />
+      </div>
+
+      {/* Real-time Location & Snap Status Card */}
+      <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80 space-y-2">
+        <div className="flex items-center justify-between text-xs font-bold">
+          <span className="text-slate-300 flex items-center gap-1.5">
+            <MapPin size={14} className="text-blue-400" />
+            배치 위치 & 자석 스냅 상태
+          </span>
+          {currentRoom && (
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+              🏠 {currentRoom.name}
+            </span>
+          )}
+        </div>
+
+        {/* Snap Status Badge */}
+        {snapStatusText ? (
+          <div className="px-2.5 py-1.5 bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm">
+            <Magnet size={14} className="text-emerald-400 shrink-0 animate-pulse" />
+            <span className="truncate">🧲 {snapStatusText}</span>
+          </div>
+        ) : (
+          <div className="px-2.5 py-1.5 bg-slate-900/60 border border-slate-700/60 text-slate-400 rounded-lg text-xs font-medium flex items-center gap-1.5">
+            <Move size={14} className="text-slate-500 shrink-0" />
+            <span>자유 배치 (스냅 미적용)</span>
+          </div>
+        )}
+
+        {/* Room-Relative Position */}
+        {currentRoom && (
+          <div className="text-[11px] font-mono text-slate-400 pt-1.5 border-t border-slate-700/60 flex justify-between items-center">
+            <span>방 기준 상대 위치:</span>
+            <span className="text-emerald-400 font-bold">
+              X: {relX >= 0 ? `${relX}cm` : `-${Math.abs(relX)}cm`}, Y: {relY >= 0 ? `${relY}cm` : `-${Math.abs(relY)}cm`}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Dimensions */}

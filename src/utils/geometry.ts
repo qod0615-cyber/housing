@@ -112,7 +112,7 @@ export function findWallSnap(
   itemH: number,
   rotationDeg: number = 0,
   rooms: Room[],
-  threshold: number = 25
+  threshold: number = 15
 ): { snappedX: number; snappedY: number; isSnapped: boolean; wallName?: string; wallDirection?: 'top' | 'right' | 'bottom' | 'left' | 'corner' } {
   let snappedX = rawX;
   let snappedY = rawY;
@@ -129,7 +129,7 @@ export function findWallSnap(
   const aabb = getRotatedAABB(rawX, rawY, itemW, itemH, rotationDeg);
 
   for (const room of rooms) {
-    const margin = 50;
+    const margin = 60;
     const inXRange = itemCX >= room.x - margin && itemCX <= room.x + room.w + margin;
     const inYRange = itemCY >= room.y - margin && itemCY <= room.y + room.h + margin;
 
@@ -140,50 +140,7 @@ export function findWallSnap(
     const distTop = Math.abs(aabb.minY - room.y);
     const distBottom = Math.abs(aabb.maxY - (room.y + room.h));
 
-    // ================= 1. COORDINATED CORNER SNAP (2-Wall Joint Snap) =================
-    // Top-Left Corner
-    if (distLeft <= threshold && distTop <= threshold) {
-      return {
-        snappedX: rawX + (room.x - aabb.minX),
-        snappedY: rawY + (room.y - aabb.minY),
-        isSnapped: true,
-        wallName: `${room.name} 상단-왼쪽 구석 코너`,
-        wallDirection: 'corner',
-      };
-    }
-    // Top-Right Corner
-    if (distRight <= threshold && distTop <= threshold) {
-      return {
-        snappedX: rawX + ((room.x + room.w) - aabb.maxX),
-        snappedY: rawY + (room.y - aabb.minY),
-        isSnapped: true,
-        wallName: `${room.name} 상단-오른쪽 구석 코너`,
-        wallDirection: 'corner',
-      };
-    }
-    // Bottom-Left Corner
-    if (distLeft <= threshold && distBottom <= threshold) {
-      return {
-        snappedX: rawX + (room.x - aabb.minX),
-        snappedY: rawY + ((room.y + room.h) - aabb.maxY),
-        isSnapped: true,
-        wallName: `${room.name} 하단-왼쪽 구석 코너`,
-        wallDirection: 'corner',
-      };
-    }
-    // Bottom-Right Corner
-    if (distRight <= threshold && distBottom <= threshold) {
-      return {
-        snappedX: rawX + ((room.x + room.w) - aabb.maxX),
-        snappedY: rawY + ((room.y + room.h) - aabb.maxY),
-        isSnapped: true,
-        wallName: `${room.name} 하단-오른쪽 구석 코너`,
-        wallDirection: 'corner',
-      };
-    }
-
-    // ================= 2. SINGLE WALL SNAP =================
-    // Check Left & Right Inner Walls if within room Y range
+    // 1. Check Left & Right Inner Walls if item is within room Y range
     if (inYRange) {
       if (distLeft <= threshold && distLeft < closestXDist) {
         closestXDist = distLeft;
@@ -201,7 +158,7 @@ export function findWallSnap(
       }
     }
 
-    // Check Top & Bottom Inner Walls if within room X range
+    // 2. Check Top & Bottom Inner Walls if item is within room X range
     if (inXRange) {
       if (distTop <= threshold && distTop < closestYDist) {
         closestYDist = distTop;
@@ -221,14 +178,24 @@ export function findWallSnap(
   }
 
   const isSnapped = isXSnapped || isYSnapped;
-  const wallNames = [xWallName, yWallName].filter(Boolean).join(' & ');
+  const isCorner = isXSnapped && isYSnapped;
+  const finalWallDir = isCorner ? 'corner' : wallDir;
+  
+  let wallLabel = '';
+  if (isCorner) {
+    wallLabel = `${xWallName} & ${yWallName} (구석 코너)`;
+  } else if (isXSnapped) {
+    wallLabel = xWallName;
+  } else if (isYSnapped) {
+    wallLabel = yWallName;
+  }
 
   return {
     snappedX,
     snappedY,
     isSnapped,
-    wallName: isSnapped ? wallNames : undefined,
-    wallDirection: isSnapped ? wallDir : undefined,
+    wallName: isSnapped ? wallLabel : undefined,
+    wallDirection: finalWallDir,
   };
 }
 
