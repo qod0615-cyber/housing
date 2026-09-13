@@ -30,6 +30,7 @@ interface FloorPlanCanvasProps {
   onDuplicateItem: (item: Furniture) => void;
   onToggleGridSnap: () => void;
   onToggleAngleSnap: () => void;
+  onPushHistory?: () => void;
   zoom: number;
   setZoom: React.Dispatch<React.SetStateAction<number>>;
   canvasRef: React.RefObject<SVGSVGElement | null>;
@@ -47,6 +48,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   onDuplicateItem,
   onToggleGridSnap,
   onToggleAngleSnap,
+  onPushHistory,
   zoom,
   setZoom,
   canvasRef,
@@ -186,9 +188,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         newY = Math.round(newY / state.gridSize) * state.gridSize;
       }
 
-      // 1. Wall Auto Magnet Snap & Hard Wall Boundary Clamping
-      const isFurnitureItem = item.type === 'furniture';
-      const wallSnap = findWallSnap(newX, newY, item.w, item.h, item.rotation, state.rooms, 15, isFurnitureItem);
+      // 1. Wall Auto Magnet Snap
+      const wallSnap = findWallSnap(newX, newY, item.w, item.h, item.rotation, state.rooms, 15);
       let newRot = item.rotation;
 
       // Auto-align wall fixtures (sockets, windows, doors, internet) to wall direction
@@ -210,8 +211,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           wallName: wallSnap.wallName,
         });
       } else {
-        // 2. Furniture-to-Furniture Magnet Snap (Activates only when directly touching adjacent furniture <= 8cm)
-        const furnSnap = findFurnitureSnap(newX, newY, item, state.items, 8);
+        // 2. Furniture-to-Furniture Magnet Snap
+        const furnSnap = findFurnitureSnap(newX, newY, item, state.items, 15);
         if (furnSnap.isSnapped) {
           newX = furnSnap.snappedX;
           newY = furnSnap.snappedY;
@@ -223,6 +224,22 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           });
         } else if (snapFeedback.active && snapFeedback.itemId === item.id) {
           setSnapFeedback({ active: false, angle: null, itemId: null });
+        }
+      }
+
+      // 3. Prevent wall penetration for furniture inside room bounds
+      if (item.type === 'furniture') {
+        const itemCX = newX + item.w / 2;
+        const itemCY = newY + item.h / 2;
+        const currentRoom = state.rooms.find(
+          (r) => itemCX >= r.x - 10 && itemCX <= r.x + r.w + 10 && itemCY >= r.y - 10 && itemCY <= r.y + r.h + 10
+        );
+        if (currentRoom) {
+          const aabb = getRotatedAABB(newX, newY, item.w, item.h, newRot);
+          if (aabb.minX < currentRoom.x) newX += (currentRoom.x - aabb.minX);
+          if (aabb.maxX > currentRoom.x + currentRoom.w) newX += ((currentRoom.x + currentRoom.w) - aabb.maxX);
+          if (aabb.minY < currentRoom.y) newY += (currentRoom.y - aabb.minY);
+          if (aabb.maxY > currentRoom.y + currentRoom.h) newY += ((currentRoom.y + currentRoom.h) - aabb.maxY);
         }
       }
 
@@ -380,6 +397,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     }
 
     const { clientX, clientY } = getEventCoords(e);
+    onPushHistory?.();
     setDragTarget({
       type: 'item',
       id: item.id,
@@ -412,6 +430,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     }
 
     const { clientX, clientY } = getEventCoords(e);
+    onPushHistory?.();
     setDragTarget({
       type: 'room',
       id: room.id,
@@ -433,6 +452,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     onSelectItem(item.id);
     const centerX = item.x + item.w / 2;
     const centerY = item.y + item.h / 2;
+    onPushHistory?.();
     setDragTarget({
       type: 'rotate-item',
       id: item.id,
@@ -451,6 +471,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   const startItemResize = (e: React.MouseEvent | React.TouchEvent, item: Furniture) => {
     e.stopPropagation();
     const { clientX, clientY } = getEventCoords(e);
+    onPushHistory?.();
     setDragTarget({
       type: 'resize-item',
       id: item.id,
@@ -469,6 +490,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   const startRoomResize = (e: React.MouseEvent | React.TouchEvent, room: Room) => {
     e.stopPropagation();
     const { clientX, clientY } = getEventCoords(e);
+    onPushHistory?.();
     setDragTarget({
       type: 'resize-room',
       id: room.id,

@@ -433,6 +433,7 @@ export default function Home() {
           onDuplicateItem={handleDuplicateItem}
           onToggleGridSnap={() => setState((prev) => ({ ...prev, snapToGrid: !prev.snapToGrid }))}
           onToggleAngleSnap={() => setState((prev) => ({ ...prev, snapAngle: !prev.snapAngle }))}
+          onPushHistory={() => pushHistory(state)}
           zoom={zoom}
           setZoom={setZoom}
           canvasRef={canvasRef}
