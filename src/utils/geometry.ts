@@ -112,7 +112,8 @@ export function findWallSnap(
   itemH: number,
   rotationDeg: number = 0,
   rooms: Room[],
-  threshold: number = 6
+  threshold: number = 6,
+  penetrationThreshold: number = 25
 ): { snappedX: number; snappedY: number; isSnapped: boolean; wallName?: string; wallDirection?: 'top' | 'right' | 'bottom' | 'left' | 'corner' } {
   let snappedX = rawX;
   let snappedY = rawY;
@@ -135,22 +136,26 @@ export function findWallSnap(
 
     if (!inXRange && !inYRange) continue;
 
-    const distLeft = Math.abs(aabb.minX - room.x);
-    const distRight = Math.abs(aabb.maxX - (room.x + room.w));
-    const distTop = Math.abs(aabb.minY - room.y);
-    const distBottom = Math.abs(aabb.maxY - (room.y + room.h));
-
     // 1. Check Left & Right Inner Walls if item is within room Y range
     if (inYRange) {
-      if (distLeft <= threshold && distLeft < closestXDist) {
-        closestXDist = distLeft;
+      // Left Wall
+      const isLeftApproach = aabb.minX >= room.x;
+      const leftDist = isLeftApproach ? (aabb.minX - room.x) : (room.x - aabb.minX);
+      const leftMaxThresh = isLeftApproach ? threshold : penetrationThreshold;
+      if (leftDist <= leftMaxThresh && leftDist < closestXDist) {
+        closestXDist = leftDist;
         snappedX = rawX + (room.x - aabb.minX);
         isXSnapped = true;
         xWallName = `${room.name} 왼쪽 벽`;
         wallDir = 'left';
       }
-      if (distRight <= threshold && distRight < closestXDist) {
-        closestXDist = distRight;
+
+      // Right Wall
+      const isRightApproach = aabb.maxX <= room.x + room.w;
+      const rightDist = isRightApproach ? ((room.x + room.w) - aabb.maxX) : (aabb.maxX - (room.x + room.w));
+      const rightMaxThresh = isRightApproach ? threshold : penetrationThreshold;
+      if (rightDist <= rightMaxThresh && rightDist < closestXDist) {
+        closestXDist = rightDist;
         snappedX = rawX + ((room.x + room.w) - aabb.maxX);
         isXSnapped = true;
         xWallName = `${room.name} 오른쪽 벽`;
@@ -160,15 +165,24 @@ export function findWallSnap(
 
     // 2. Check Top & Bottom Inner Walls if item is within room X range
     if (inXRange) {
-      if (distTop <= threshold && distTop < closestYDist) {
-        closestYDist = distTop;
+      // Top Wall
+      const isTopApproach = aabb.minY >= room.y;
+      const topDist = isTopApproach ? (aabb.minY - room.y) : (room.y - aabb.minY);
+      const topMaxThresh = isTopApproach ? threshold : penetrationThreshold;
+      if (topDist <= topMaxThresh && topDist < closestYDist) {
+        closestYDist = topDist;
         snappedY = rawY + (room.y - aabb.minY);
         isYSnapped = true;
         yWallName = `${room.name} 위쪽 벽`;
         wallDir = 'top';
       }
-      if (distBottom <= threshold && distBottom < closestYDist) {
-        closestYDist = distBottom;
+
+      // Bottom Wall
+      const isBottomApproach = aabb.maxY <= room.y + room.h;
+      const bottomDist = isBottomApproach ? ((room.y + room.h) - aabb.maxY) : (aabb.maxY - (room.y + room.h));
+      const bottomMaxThresh = isBottomApproach ? threshold : penetrationThreshold;
+      if (bottomDist <= bottomMaxThresh && bottomDist < closestYDist) {
+        closestYDist = bottomDist;
         snappedY = rawY + ((room.y + room.h) - aabb.maxY);
         isYSnapped = true;
         yWallName = `${room.name} 아래쪽 벽`;
@@ -207,7 +221,8 @@ export function findFurnitureSnap(
   rawY: number,
   currentItem: Furniture,
   allItems: Furniture[],
-  threshold: number = 6
+  threshold: number = 6,
+  penetrationThreshold: number = 25
 ): { snappedX: number; snappedY: number; isSnapped: boolean; targetItemName?: string } {
   let snappedX = rawX;
   let snappedY = rawY;
@@ -216,8 +231,6 @@ export function findFurnitureSnap(
   let closestDist = Infinity;
 
   const currentAABB = getRotatedAABB(rawX, rawY, currentItem.w, currentItem.h, currentItem.rotation);
-  const currentW = currentAABB.maxX - currentAABB.minX;
-  const currentH = currentAABB.maxY - currentAABB.minY;
 
   for (const other of allItems) {
     if (other.id === currentItem.id) continue;
@@ -227,38 +240,50 @@ export function findFurnitureSnap(
     const inYOverlap = !(currentAABB.maxY < otherAABB.minY || currentAABB.minY > otherAABB.maxY);
     const inXOverlap = !(currentAABB.maxX < otherAABB.minX || currentAABB.minX > otherAABB.maxX);
 
-    // 1. Attach to Other Item's Left Edge
+    // 1. Attach to Other Item's Left Edge / Right Edge
     if (inYOverlap) {
-      const distRightToLeft = Math.abs(currentAABB.maxX - otherAABB.minX);
-      if (distRightToLeft <= threshold && distRightToLeft < closestDist) {
-        closestDist = distRightToLeft;
+      // Attach to Other Item's Left Edge
+      const isLeftApproach = currentAABB.maxX <= otherAABB.minX;
+      const leftDist = isLeftApproach ? (otherAABB.minX - currentAABB.maxX) : (currentAABB.maxX - otherAABB.minX);
+      const leftMaxThresh = isLeftApproach ? threshold : penetrationThreshold;
+      if (leftDist <= leftMaxThresh && leftDist < closestDist) {
+        closestDist = leftDist;
         snappedX = rawX + (otherAABB.minX - currentAABB.maxX);
         isSnapped = true;
         targetItemName = `${other.name} 왼쪽 밀착`;
       }
+
       // Attach to Other Item's Right Edge
-      const distLeftToRight = Math.abs(currentAABB.minX - otherAABB.maxX);
-      if (distLeftToRight <= threshold && distLeftToRight < closestDist) {
-        closestDist = distLeftToRight;
+      const isRightApproach = currentAABB.minX >= otherAABB.maxX;
+      const rightDist = isRightApproach ? (currentAABB.minX - otherAABB.maxX) : (otherAABB.maxX - currentAABB.minX);
+      const rightMaxThresh = isRightApproach ? threshold : penetrationThreshold;
+      if (rightDist <= rightMaxThresh && rightDist < closestDist) {
+        closestDist = rightDist;
         snappedX = rawX + (otherAABB.maxX - currentAABB.minX);
         isSnapped = true;
         targetItemName = `${other.name} 오른쪽 밀착`;
       }
     }
 
-    // 2. Attach to Other Item's Top Edge
+    // 2. Attach to Other Item's Top Edge / Bottom Edge
     if (inXOverlap) {
-      const distBottomToTop = Math.abs(currentAABB.maxY - otherAABB.minY);
-      if (distBottomToTop <= threshold && distBottomToTop < closestDist) {
-        closestDist = distBottomToTop;
+      // Attach to Other Item's Top Edge
+      const isTopApproach = currentAABB.maxY <= otherAABB.minY;
+      const topDist = isTopApproach ? (otherAABB.minY - currentAABB.maxY) : (currentAABB.maxY - otherAABB.minY);
+      const topMaxThresh = isTopApproach ? threshold : penetrationThreshold;
+      if (topDist <= topMaxThresh && topDist < closestDist) {
+        closestDist = topDist;
         snappedY = rawY + (otherAABB.minY - currentAABB.maxY);
         isSnapped = true;
         targetItemName = `${other.name} 상단 밀착`;
       }
+
       // Attach to Other Item's Bottom Edge
-      const distTopToBottom = Math.abs(currentAABB.minY - otherAABB.maxY);
-      if (distTopToBottom <= threshold && distTopToBottom < closestDist) {
-        closestDist = distTopToBottom;
+      const isBottomApproach = currentAABB.minY >= otherAABB.maxY;
+      const bottomDist = isBottomApproach ? (currentAABB.minY - otherAABB.maxY) : (otherAABB.maxY - currentAABB.minY);
+      const bottomMaxThresh = isBottomApproach ? threshold : penetrationThreshold;
+      if (bottomDist <= bottomMaxThresh && bottomDist < closestDist) {
+        closestDist = bottomDist;
         snappedY = rawY + (otherAABB.maxY - currentAABB.minY);
         isSnapped = true;
         targetItemName = `${other.name} 하단 밀착`;
