@@ -112,7 +112,7 @@ export function findWallSnap(
   itemH: number,
   rotationDeg: number = 0,
   rooms: Room[],
-  threshold: number = 15
+  threshold: number = 6
 ): { snappedX: number; snappedY: number; isSnapped: boolean; wallName?: string; wallDirection?: 'top' | 'right' | 'bottom' | 'left' | 'corner' } {
   let snappedX = rawX;
   let snappedY = rawY;
@@ -207,7 +207,7 @@ export function findFurnitureSnap(
   rawY: number,
   currentItem: Furniture,
   allItems: Furniture[],
-  threshold: number = 15
+  threshold: number = 6
 ): { snappedX: number; snappedY: number; isSnapped: boolean; targetItemName?: string } {
   let snappedX = rawX;
   let snappedY = rawY;

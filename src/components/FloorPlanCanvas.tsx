@@ -188,8 +188,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         newY = Math.round(newY / state.gridSize) * state.gridSize;
       }
 
-      // 1. Wall Auto Magnet Snap
-      const wallSnap = findWallSnap(newX, newY, item.w, item.h, item.rotation, state.rooms, 15);
+      // 1. Wall Auto Magnet Snap (6cm threshold)
+      const wallSnap = findWallSnap(newX, newY, item.w, item.h, item.rotation, state.rooms, 6);
       let newRot = item.rotation;
 
       // Auto-align wall fixtures (sockets, windows, doors, internet) to wall direction
@@ -204,15 +204,35 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       if (wallSnap.isSnapped) {
         newX = wallSnap.snappedX;
         newY = wallSnap.snappedY;
-        setSnapFeedback({
-          active: true,
-          angle: newRot,
-          itemId: item.id,
-          wallName: wallSnap.wallName,
-        });
+
+        // Also check Furniture-to-Furniture Magnet Snap along the wall (sliding axis)
+        const furnSnap = findFurnitureSnap(newX, newY, item, state.items, 6);
+        if (furnSnap.isSnapped) {
+          if (wallSnap.wallDirection === 'left' || wallSnap.wallDirection === 'right') {
+            newY = furnSnap.snappedY;
+          } else if (wallSnap.wallDirection === 'top' || wallSnap.wallDirection === 'bottom') {
+            newX = furnSnap.snappedX;
+          } else {
+            newX = furnSnap.snappedX;
+            newY = furnSnap.snappedY;
+          }
+          setSnapFeedback({
+            active: true,
+            angle: newRot,
+            itemId: item.id,
+            wallName: `${wallSnap.wallName} & ${furnSnap.targetItemName}`,
+          });
+        } else {
+          setSnapFeedback({
+            active: true,
+            angle: newRot,
+            itemId: item.id,
+            wallName: wallSnap.wallName,
+          });
+        }
       } else {
-        // 2. Furniture-to-Furniture Magnet Snap
-        const furnSnap = findFurnitureSnap(newX, newY, item, state.items, 15);
+        // 2. Furniture-to-Furniture Magnet Snap (when not attached to wall)
+        const furnSnap = findFurnitureSnap(newX, newY, item, state.items, 6);
         if (furnSnap.isSnapped) {
           newX = furnSnap.snappedX;
           newY = furnSnap.snappedY;

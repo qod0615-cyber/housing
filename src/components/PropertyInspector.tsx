@@ -333,12 +333,14 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
   const relX = currentRoom ? Math.round(selectedItem.x - currentRoom.x) : Math.round(selectedItem.x);
   const relY = currentRoom ? Math.round(selectedItem.y - currentRoom.y) : Math.round(selectedItem.y);
 
-  const wallSnapRes = findWallSnap(selectedItem.x, selectedItem.y, selectedItem.w, selectedItem.h, selectedItem.rotation, state.rooms, 15);
-  const furnSnapRes = !wallSnapRes.isSnapped ? findFurnitureSnap(selectedItem.x, selectedItem.y, selectedItem, state.items, 15) : null;
+  const wallSnapRes = findWallSnap(selectedItem.x, selectedItem.y, selectedItem.w, selectedItem.h, selectedItem.rotation, state.rooms, 6);
+  const furnSnapRes = findFurnitureSnap(selectedItem.x, selectedItem.y, selectedItem, state.items, 6);
 
-  const snapStatusText = wallSnapRes.isSnapped
+  const snapStatusText = wallSnapRes.isSnapped && furnSnapRes.isSnapped
+    ? `${wallSnapRes.wallName} & ${furnSnapRes.targetItemName}`
+    : wallSnapRes.isSnapped
     ? wallSnapRes.wallName
-    : furnSnapRes?.isSnapped
+    : furnSnapRes.isSnapped
     ? furnSnapRes.targetItemName
     : null;
 
